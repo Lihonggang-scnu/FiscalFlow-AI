@@ -1,0 +1,44 @@
+
+<xbrli:xbrl xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.xbrl.org/2003/linkbase http://www.xbrl.org/2003/xbrl-linkbase-2003-12-31.xsd" xmlns:bker="http://xbrl.mof.gov.cn/taxonomy/2023-12-31/bker" xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xbrli="http://www.xbrl.org/2003/instance">
+  <link:schemaRef xlink:type="simple" xlink:href="bker_issuer_entry_point_2023-12-31.xsd" />
+  <xbrli:context id="c1">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://xbrl.mof.gov.cn">TEST-TAX-ID</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2019-12-31</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="u1">
+    <xbrli:measure>iso4217:CNY</xbrli:measure>
+  </xbrli:unit>
+  <bker:NumberOfBankElectronicReceipt contextRef="c1">TEST-DOCUMENT-REF</bker:NumberOfBankElectronicReceipt>
+  <bker:IdentificationCodeOfIssuer contextRef="c1">TEST-TAX-ID</bker:IdentificationCodeOfIssuer>
+  <bker:IssueDate contextRef="c1">2019-12-31</bker:IssueDate>
+  <bker:TypeOfBankElectronicReceipt contextRef="c1">普通回单</bker:TypeOfBankElectronicReceipt>
+  <bker:IdentificationOfCreditOrDebit contextRef="c1">0</bker:IdentificationOfCreditOrDebit>
+  <bker:IdentificationOfCashOrTransfer contextRef="c1">1</bker:IdentificationOfCashOrTransfer>
+  <bker:DateOfBookkeeping contextRef="c1">2019-12-31</bker:DateOfBookkeeping>
+  <bker:Bookkeeper contextRef="c1">经办人已脱敏</bker:Bookkeeper>
+  <bker:JournalAccountOfBookkeeping contextRef="c1">XX交易记录</bker:JournalAccountOfBookkeeping>
+  <bker:Currency contextRef="c1">CNY</bker:Currency>
+  <bker:TransactionAmountInFigures decimals="2" contextRef="c1" unitRef="u1">1000000.00</bker:TransactionAmountInFigures>
+  <bker:TypeOfSourceDocument contextRef="c1">支票</bker:TypeOfSourceDocument>
+  <bker:NumberOfSourceDocument contextRef="c1">TEST-DOCUMENT-REF</bker:NumberOfSourceDocument>
+  <bker:TransactionCode contextRef="c1">42062</bker:TransactionCode>
+  <bker:Notes contextRef="c1">自由文本已脱敏</bker:Notes>
+  <bker:AccountNameOfPayer contextRef="c1">样例主体-已脱敏</bker:AccountNameOfPayer>
+  <bker:AccountNumberOfPayer contextRef="c1">TEST-BANK-ACCOUNT</bker:AccountNumberOfPayer>
+  <bker:OpeningBankOfPayer contextRef="c1">中国光大银行XX支行</bker:OpeningBankOfPayer>
+  <bker:AccountNumberOfPayee contextRef="c1">TEST-BANK-ACCOUNT</bker:AccountNumberOfPayee>
+  <bker:AccountNameOfPayee contextRef="c1">样例主体-已脱敏</bker:AccountNameOfPayee>
+  <bker:OpeningBankOfPayee contextRef="c1">中国光大银行XX支行</bker:OpeningBankOfPayee>
+  <bker:AccountNumberOfRecipient contextRef="c1">TEST-BANK-ACCOUNT</bker:AccountNumberOfRecipient>
+  <bker:IdentificationNumberOfRecipient contextRef="c1">TEST-TAX-ID</bker:IdentificationNumberOfRecipient>
+  <bker:BusinessProductType contextRef="c1">同行转账</bker:BusinessProductType>
+  <bker:ChannelType contextRef="c1">柜面交易</bker:ChannelType>
+  <bker:Usage contextRef="c1">支付供应商款项</bker:Usage>
+  <bker:TimeOfBookkeeping contextRef="c1">15:07:11</bker:TimeOfBookkeeping>
+  <bker:IdentifyingCode contextRef="c1">TEST-DOCUMENT-REF</bker:IdentifyingCode>
+  <bker:BusinessSerialNumber contextRef="c1">TEST-DOCUMENT-REF</bker:BusinessSerialNumber>
+</xbrli:xbrl>

@@ -1,0 +1,682 @@
+{
+  "description": "固定假设用户的离线策略比较；回答分支概率是启发值，非真实用户统计。",
+  "summary": {
+    "individual": {
+      "rounds": 14,
+      "unresolved": 0,
+      "burden_points": 14.0
+    },
+    "ranked": {
+      "rounds": 7,
+      "unresolved": 0,
+      "burden_points": 13.0
+    },
+    "forecast": {
+      "rounds": 7,
+      "unresolved": 0,
+      "burden_points": 13.0
+    }
+  },
+  "cases": [
+    {
+      "case": "三票均可回答",
+      "policy": "individual",
+      "rounds": 3,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [],
+      "unresolved": [],
+      "answer_characters": 49,
+      "burden_points": 3.0,
+      "turns": [
+        {
+          "question": "one-F002",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 15,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F006",
+          "coverage": [
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "三票均可回答",
+      "policy": "ranked",
+      "rounds": 1,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [],
+      "unresolved": [],
+      "answer_characters": 49,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 49,
+          "burden": 2.0
+        }
+      ]
+    },
+    {
+      "case": "三票均可回答",
+      "policy": "forecast",
+      "rounds": 1,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [],
+      "unresolved": [],
+      "answer_characters": 49,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 49,
+          "burden": 2.0
+        }
+      ]
+    },
+    {
+      "case": "部分回答并暂缓",
+      "policy": "individual",
+      "rounds": 3,
+      "answered": [
+        "F002",
+        "F003"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 56,
+      "burden_points": 3.0,
+      "turns": [
+        {
+          "question": "one-F002",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 15,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F009",
+          "coverage": [
+            {
+              "target_id": "F009",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "deferred",
+          "answer_length": 24,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "部分回答并暂缓",
+      "policy": "ranked",
+      "rounds": 2,
+      "answered": [
+        "F002",
+        "F003"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 71,
+      "burden_points": 3.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F009",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "partial",
+          "answer_length": 54,
+          "burden": 2.0
+        },
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "部分回答并暂缓",
+      "policy": "forecast",
+      "rounds": 2,
+      "answered": [
+        "F002",
+        "F003"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 71,
+      "burden_points": 3.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F009",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "partial",
+          "answer_length": 54,
+          "burden": 2.0
+        },
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "已有一项草稿",
+      "policy": "individual",
+      "rounds": 2,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [],
+      "unresolved": [],
+      "answer_characters": 34,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F006",
+          "coverage": [
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "已有一项草稿",
+      "policy": "ranked",
+      "rounds": 1,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [],
+      "unresolved": [],
+      "answer_characters": 34,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 34,
+          "burden": 2.0
+        }
+      ]
+    },
+    {
+      "case": "已有一项草稿",
+      "policy": "forecast",
+      "rounds": 1,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [],
+      "unresolved": [],
+      "answer_characters": 34,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 34,
+          "burden": 2.0
+        }
+      ]
+    },
+    {
+      "case": "已有一项暂缓",
+      "policy": "individual",
+      "rounds": 2,
+      "answered": [
+        "F002",
+        "F003"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 32,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "one-F002",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 15,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "已有一项暂缓",
+      "policy": "ranked",
+      "rounds": 1,
+      "answered": [
+        "F002",
+        "F003"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 32,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 32,
+          "burden": 2.0
+        }
+      ]
+    },
+    {
+      "case": "已有一项暂缓",
+      "policy": "forecast",
+      "rounds": 1,
+      "answered": [
+        "F002",
+        "F003"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 32,
+      "burden_points": 2.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 32,
+          "burden": 2.0
+        }
+      ]
+    },
+    {
+      "case": "四票回答不完整",
+      "policy": "individual",
+      "rounds": 4,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 73,
+      "burden_points": 4.0,
+      "turns": [
+        {
+          "question": "one-F002",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 15,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F003",
+          "coverage": [
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F006",
+          "coverage": [
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        },
+        {
+          "question": "one-F009",
+          "coverage": [
+            {
+              "target_id": "F009",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "deferred",
+          "answer_length": 24,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "四票回答不完整",
+      "policy": "ranked",
+      "rounds": 2,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 88,
+      "burden_points": 4.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F009",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "partial",
+          "answer_length": 71,
+          "burden": 3.0
+        },
+        {
+          "question": "one-F006",
+          "coverage": [
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    },
+    {
+      "case": "四票回答不完整",
+      "policy": "forecast",
+      "rounds": 2,
+      "answered": [
+        "F002",
+        "F003",
+        "F006"
+      ],
+      "waiting": [
+        "F009"
+      ],
+      "unresolved": [],
+      "answer_characters": 88,
+      "burden_points": 4.0,
+      "turns": [
+        {
+          "question": "group",
+          "coverage": [
+            {
+              "target_id": "F002",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F003",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            },
+            {
+              "target_id": "F009",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "partial",
+          "answer_length": 71,
+          "burden": 3.0
+        },
+        {
+          "question": "one-F006",
+          "coverage": [
+            {
+              "target_id": "F006",
+              "slot": "purpose"
+            }
+          ],
+          "answer_status": "answered",
+          "answer_length": 17,
+          "burden": 1.0
+        }
+      ]
+    }
+  ]
+}

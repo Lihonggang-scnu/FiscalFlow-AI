@@ -1,0 +1,36 @@
+{
+  "scenario": "receipt_lost_then_changed",
+  "steps": [
+    {
+      "name": "提交后中断",
+      "status": "error",
+      "invoice": {
+        "purpose": "购买培训资料",
+        "remarks": null,
+        "revision": 2
+      },
+      "commits": 1
+    },
+    {
+      "name": "重启后核对",
+      "status": "ok",
+      "reply": "核对结果（甲企业（比赛模拟），2026-09）：\n\n- F002 当前用途：**“后来更正的培训资料”**，备注为空，发票当前版本为第 3 版（保存版本 3）。\n- 该票开票日期 2026-09-08，销售方书林图文（模拟），项目“复印纸、打印服务”，金额 800.00 元。\n- 关于“那次被中断的保存”：系统里没有留下可查的保存操作记录，也没有相关任务或办理反馈记录，因此无法确认那次保存是否写入、写入的是哪个值。目前能确认的只是发票上现存的用途就是上面这一条。\n\n按你的要求，本次没有做任何修改，也没有重新提交保存。",
+      "invoice": {
+        "purpose": "后来更正的培训资料",
+        "remarks": null,
+        "revision": 3
+      },
+      "commits": 2
+    }
+  ],
+  "checks": {
+    "interruption_reproduced": true,
+    "recovery_completed": true,
+    "current_value_correct": true,
+    "current_value_in_reply": true,
+    "no_duplicate_write": true
+  },
+  "passed": true,
+  "model_calls": 7,
+  "estimated_increment_cny": 0.053125
+}

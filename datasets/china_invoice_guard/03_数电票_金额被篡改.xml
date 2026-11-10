@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<EInvoice xmlns="http://www.chinatax.gov.cn/einv">
+  <Header><InvoiceType>普通发票</InvoiceType></Header>
+  <EInvoiceData>
+    <BasicInformation>
+      <InvoiceNumber>24312000000033334444</InvoiceNumber>
+      <IssueTime>2026-07-05</IssueTime>
+      <TotalAmWithoutTax>100.00</TotalAmWithoutTax>
+      <TotalTaxAm>6.00</TotalTaxAm>
+      <TotalTaxIncludedAmount>160.00</TotalTaxIncludedAmount>
+    </BasicInformation>
+    <SellerInformation>
+      <SellerName>北京小桔科技有限公司</SellerName>
+      <SellerTaxNo>91350100M000100Y43</SellerTaxNo>
+    </SellerInformation>
+    <BuyerInformation>
+      <BuyerName>示例科技有限公司</BuyerName>
+      <BuyerTaxNo>91350100M000100Y43</BuyerTaxNo>
+    </BuyerInformation>
+    <IssuItemInformation>
+      <ItemName>*运输服务*客运服务费</ItemName>
+      <Amount>100.00</Amount>
+      <TaxRate>0.06</TaxRate>
+      <ComTaxAm>6.00</ComTaxAm>
+    </IssuItemInformation>
+  </EInvoiceData>
+</EInvoice>

@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.files/
+.venv/
+venv/
+.env
+.env.*
+/app/config.toml
+external-credentials/
+app/artifacts/
+*.sqlite3-wal
+*.sqlite3-shm

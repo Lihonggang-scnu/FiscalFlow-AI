@@ -1,0 +1,47 @@
+........................................................................ [ 41%]
+......................FF................................................ [ 82%]
+...............................                                          [100%]
+================================== FAILURES ===================================
+___________ test_mof_invoice_type_is_preserved_in_the_parsed_record ___________
+
+    def test_mof_invoice_type_is_preserved_in_the_parsed_record():
+        ordinary = _parsed_source("MOF-CN-06.xml")
+        special = _parsed_source("MOF-CN-08.xml")
+    
+>       assert ordinary.get("invoice_type") == "增值税电子普通发票", f"actual parsed source fields: {ordinary!r}"
+E       AssertionError: actual parsed source fields: {'source_invoice_id': 'TEST-DOCUMENT-REF-TEST-DOCUMENT-REF', 'issue_date': '2020-03-28', 'seller_name': '样例主体-已脱敏', 'project_name': '商品项目已脱敏', 'amount': '266.00', 'amount_cents': 26600, 'currency': 'CNY', 'unit_price': None, 'quantity': None, 'purpose': None, 'remarks': None, 'invoice_number': 'TEST-DOCUMENT-REF', 'invoice_code': 'TEST-DOCUMENT-REF', 'seller_tax_id': 'TEST-TAX-ID', 'buyer_name': '样例主体-已脱敏', 'buyer_tax_id': 'TEST-TAX-ID', 'net_amount': '235.40', 'tax_amount': '30.60', 'accounting_period': '', 'booked_status': '', 'checked_status': '', 'paid_status': ''}
+E       assert None == '增值税电子普通发票'
+E        +  where None = <built-in method get of dict object at 0x0000022BD55B93C0>('invoice_type')
+E        +    where <built-in method get of dict object at 0x0000022BD55B93C0> = {'source_invoice_id': 'TEST-DOCUMENT-REF-TEST-DOCUMENT-REF', 'issue_date': '2020-03-28', 'seller_name': '样例主体-已脱敏', 'project_name': '商品项目已脱敏', ...}.get
+
+tests\test_mof_document_samples.py:58: AssertionError
+__ test_same_mof_invoice_keeps_one_identity_across_issuer_and_receiver_views __
+
+    def test_same_mof_invoice_keeps_one_identity_across_issuer_and_receiver_views():
+        issuer = _parsed_source("MOF-CN-06.xml")
+        receiver = _parsed_source("MOF-CN-07.xml")
+    
+        assert issuer["invoice_number"] == receiver["invoice_number"]
+>       assert issuer["source_invoice_id"] == receiver["source_invoice_id"], (
+            f"issuer identity={issuer['source_invoice_id']!r}; "
+            f"receiver identity={receiver['source_invoice_id']!r}; "
+            f"issuer code/number={issuer['invoice_code']!r}/{issuer['invoice_number']!r}; "
+            f"receiver code/number={receiver['invoice_code']!r}/{receiver['invoice_number']!r}"
+        )
+E       AssertionError: issuer identity='TEST-DOCUMENT-REF-TEST-DOCUMENT-REF'; receiver identity='TEST-DOCUMENT-REF'; issuer code/number='TEST-DOCUMENT-REF'/'TEST-DOCUMENT-REF'; receiver code/number=''/'TEST-DOCUMENT-REF'
+E       assert 'TEST-DOCUMEN...-DOCUMENT-REF' == 'TEST-DOCUMENT-REF'
+E         
+E         - TEST-DOCUMENT-REF
+E         + TEST-DOCUMENT-REF-TEST-DOCUMENT-REF
+
+tests\test_mof_document_samples.py:67: AssertionError
+============================== warnings summary ===============================
+tests/test_chainlit_app.py::test_ui_defaults_are_project_relative_and_user_company_options_are_acl_scoped
+  E:\AI-Chem\ChemIntent\.venv-cpython\Lib\site-packages\traceloop\sdk\prompts\model.py:12: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.14/migration/
+    class RegistryObjectBaseModel(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_mof_document_samples.py::test_mof_invoice_type_is_preserved_in_the_parsed_record
+FAILED tests/test_mof_document_samples.py::test_same_mof_invoice_keeps_one_identity_across_issuer_and_receiver_views
+2 failed, 173 passed, 1 warning in 39.96s

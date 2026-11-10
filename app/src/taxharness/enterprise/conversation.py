@@ -1,0 +1,278 @@
+"""Conversational access to the enterprise workbench's existing business records."""
+
+from __future__ import annotations
+
+import json
+import sqlite3
+from contextlib import closing, contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from zoneinfo import ZoneInfo
+
+from langchain.agents import create_agent
+from langchain.agents.middleware import AgentMiddleware
+from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import AIMessage, SystemMessage, ToolMessage, messages_to_dict
+from pydantic import BaseModel, Field
+
+from ..agent import AgentRuntime, BatchGuardMiddleware, BudgetMiddleware, CancellationMiddleware
+from ..agent_store import AgentStore
+from ..agent_tools import AgentContext, _check_cancel
+from ..context_compiler import compile_context, estimated_tokens
+from ..errors import SessionOwnershipError, TaxHarnessError
+from ..services import TaxService
+from .service import EnterpriseService
+from .storage import EnterpriseDatabase
+
+
+SYSTEM = """你是代账机构的财税办理助手，帮助当前登录用户处理企业工作台中的票据补充和复核。
+用户身份由系统提供，不能切换成其他人。先按当前企业和期间查工作项，再读取真实票据、草稿及状态；多个企业或票据不明确时先澄清。
+经办人回复生成的是待会计确认的草稿，不是已经保存的发票。用户要求更正草稿时，读取最新 draft_revision，再调用更正工具；用户明确要求保存/确认时才调用确认工具，结果以工具回执为准。
+用户明确提供了某张工作项发票的用途或备注而尚无草稿时，用 enterprise_create_draft 记录；如同一轮明确要求保存，创建草稿后直接确认，无需重复询问。
+确认保存后仍需按企业流程复核；不能把待复核说成工作项已完成。只读或复核角色不能借用会计权限。不可根据票面、销售方或金额编造用途。
+用户明确给出同一句话里的多个动作时按业务先后顺序执行；涉及切换企业时为各动作指定 company_id。回复简洁说明已完成、未完成和下一步，不默认输出内部编号或版本。
+程序上下文中的 recovered_operations 是之前已确认的操作回执及重新读取的当前值；两者不同时分别说明，不重复提交。
+attachment_observations 是上传票据的识别结果，可能有不确定字段；uncertain_candidates 只是待核对候选，不当成确定事实。结合用户文字及当前工作项核对，不能从票面猜用途或付款状态。
+"""
+
+
+class DraftReference(BaseModel):
+    draft_id: str = Field(description="工作项中读取到的草稿编号")
+    draft_revision: int = Field(description="刚读取到的草稿版本")
+
+
+def _actor(database: EnterpriseDatabase, user_id: str) -> dict[str, Any]:
+    row = database.connection.execute(
+        "SELECT user_id,username,display_name,is_admin,active FROM enterprise_users WHERE user_id=?", (user_id,)
+    ).fetchone()
+    if row is None or not row["active"]:
+        raise PermissionError("当前账号不存在或已停用。")
+    return dict(row)
+
+
+@contextmanager
+def _service(runtime: ToolRuntime[AgentContext], company_id: str | None):
+    _check_cancel(runtime)
+    context = runtime.context
+    target = company_id or context.current_company_id
+    with EnterpriseDatabase(context.database_path) as database:
+        actor = _actor(database, context.user_id)
+        TaxService(database).require_access(user_id=context.user_id, company_id=target)
+        service = EnterpriseService(database)
+        service._role(actor, target, {"accountant", "reviewer"})
+        yield context, target, database, actor, service
+
+
+def make_enterprise_tools() -> list:
+    @tool(description="列出当前企业或明确指定企业的工作项，可按 YYYY-MM 期间筛选。")
+    def enterprise_list_work_items(period: str | None = None, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (_, target, _, actor, service):
+            return service.list_work_items(user=actor, company_id=target, period=period, page_size=100)
+
+    @tool(description="读取企业工作项的实时票据、用途草稿、经办人原话、待确认和待复核状态。")
+    def enterprise_inspect_work_item(task_id: str, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        from .work_projection import project_enterprise_work
+
+        with _service(runtime, company_id) as (_, target, database, actor, _):
+            task = database.connection.execute("SELECT company_id FROM enterprise_work_items WHERE task_id=?", (task_id,)).fetchone()
+            if task is None or task["company_id"] != target:
+                raise ValueError("当前企业没有该工作项。")
+            return project_enterprise_work(database, user=actor, task_id=task_id)
+
+    @tool(description="为当前工作项中的一张发票记录用户明确提供的用途或备注草稿；不会修改发票。先检查工作项取得内部 invoice_id。")
+    def enterprise_create_draft(invoice_id: str, purpose: str | None = None, remarks: str | None = None,
+                                task_id: str | None = None, company_id: str | None = None,
+                                runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (context, target, database, actor, service):
+            selected = task_id or context.active_work_item_id
+            task = database.connection.execute("SELECT company_id FROM enterprise_work_items WHERE task_id=?", (selected,)).fetchone()
+            if task is None or task["company_id"] != target:
+                raise ValueError("当前企业没有该工作项。")
+            return service.create_conversation_draft(user=actor, task_id=selected, invoice_id=invoice_id,
+                purpose=purpose, remarks=remarks, source_turn_id=context.turn_id, user_text=context.current_user_text)
+
+    @tool(description="更正已读取的企业草稿，不写发票。必须提供草稿最新 draft_revision；未提及的用途或备注保持原样，明确清空时使用空字符串。")
+    def enterprise_correct_draft(draft_id: str, expected_draft_revision: int, purpose: str | None = None,
+                                 remarks: str | None = None, invoice_id: str | None = None,
+                                 company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (_, target, database, actor, service):
+            draft = database.connection.execute("SELECT * FROM enterprise_drafts WHERE draft_id=? AND company_id=?", (draft_id, target)).fetchone()
+            if draft is None:
+                raise ValueError("当前企业没有该草稿。")
+            if purpose is None and remarks is None and invoice_id is None:
+                raise ValueError("请提供需要更正的字段或票据。")
+            updated = service.update_draft(user=actor, draft_id=draft_id, invoice_id=invoice_id or draft["invoice_id"],
+                purpose=draft["proposed_purpose"] if purpose is None else purpose,
+                remarks=draft["proposed_remarks"] if remarks is None else remarks,
+                expected_draft_revision=expected_draft_revision)
+            return {"status": "ok", "draft": service._decode_draft(updated), "invoice_written": False,
+                    "summary": "草稿已更正，发票尚未修改。"}
+
+    @tool(description="会计明确要求保存或确认时，按草稿编号和最新 draft_revision 逐项确认；写入后仍按企业流程等待复核。")
+    def enterprise_confirm_drafts(drafts: list[DraftReference], company_id: str | None = None,
+                                  runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (_, target, database, actor, service):
+            ids = [draft.draft_id for draft in drafts]
+            for draft_id in ids:
+                if database.connection.execute("SELECT 1 FROM enterprise_drafts WHERE draft_id=? AND company_id=?", (draft_id, target)).fetchone() is None:
+                    raise ValueError("所选草稿不属于当前企业。")
+            return service.confirm_drafts(user=actor, draft_ids=ids,
+                expected_draft_revisions={draft.draft_id: draft.draft_revision for draft in drafts})
+
+    @tool(description="查询当前企业指定期间的金额汇总；多币种分别列示，不自动折算。")
+    def enterprise_finance_summary(period: str, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (_, target, _, actor, service):
+            return service.finance_summary(user=actor, company_id=target, period=period)
+
+    @tool(description="读取当前用户在这个工作项上传的附件识别结果；PDF 较长时可指定从1开始的页码读取对应文本。")
+    def enterprise_read_attachment(attachment_id: str, page: int | None = None, company_id: str | None = None,
+                                   runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (context, target, database, _, _):
+            row = database.connection.execute("""SELECT extracted_json FROM enterprise_assistant_attachments
+                WHERE attachment_id=? AND company_id=? AND task_id=? AND user_id=?""",
+                (attachment_id, target, context.active_work_item_id, context.user_id)).fetchone()
+            if row is None:
+                raise ValueError("没有找到当前工作项下可读取的附件。")
+            result = json.loads(row["extracted_json"])
+            text = result.pop("pdf_text", "")
+            if page is not None:
+                pages = text.split("\f")
+                if page < 1 or page > result["page_count"]:
+                    raise ValueError("PDF 页码超出范围。")
+                result["page_text"] = pages[page - 1] if page <= len(pages) else ""
+            return {"status": "ok", "attachment_id": attachment_id, **result}
+
+    @tool(description="按用户明确要求切换当前办理企业，不改变原企业工作项。")
+    def enterprise_switch_company(company_id: str, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _service(runtime, company_id) as (context, target, _, _, _):
+            AgentStore(context.agent_store_path).set_company(context.session_id, context.user_id, target)
+            with context.lock:
+                context.current_company_id = target
+                context.response_company_id = None
+                context.active_work_item_id = None
+            return {"status": "ok", "current_company_id": target, "summary": "当前办理企业已切换。"}
+
+    return [enterprise_list_work_items, enterprise_inspect_work_item, enterprise_create_draft, enterprise_correct_draft,
+            enterprise_confirm_drafts, enterprise_finance_summary, enterprise_read_attachment, enterprise_switch_company]
+
+
+class EnterpriseToolErrors(AgentMiddleware):
+    def wrap_tool_call(self, request, handler):
+        try:
+            return handler(request)
+        except (TaxHarnessError, PermissionError, ValueError) as error:
+            status = getattr(error, "code", "permission_denied" if isinstance(error, PermissionError) else "invalid_input")
+            return ToolMessage(content=json.dumps({"status": status, "summary": str(error)}, ensure_ascii=False),
+                               tool_call_id=request.tool_call["id"], name=request.tool_call.get("name"))
+
+
+class EnterpriseProgramContext(AgentMiddleware):
+    def wrap_model_call(self, request, handler):
+        context = request.runtime.context
+        with EnterpriseDatabase(context.database_path) as database:
+            actor = _actor(database, context.user_id)
+            service = EnterpriseService(database)
+            service._role(actor, context.current_company_id, {"accountant", "reviewer"})
+            TaxService(database).require_access(user_id=context.user_id, company_id=context.current_company_id)
+            items = service.list_work_items(user=actor, company_id=context.current_company_id, page_size=100)["items"]
+        snapshot = {"user_id": context.user_id, "current_company_id": context.current_company_id,
+                    "current_date_beijing": datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat(),
+                    "active_work_item_id": context.active_work_item_id,
+                    "work_items": [{key: item.get(key) for key in ("task_id", "period", "status", "invoice_count", "pending_count", "review_count")} for item in items]}
+        if context.recovered_operations:
+            snapshot["recovered_operations"] = context.recovered_operations
+        if context.attachment_observations:
+            snapshot["attachment_observations"] = context.attachment_observations
+        from langchain_core.utils.function_calling import convert_to_openai_tool
+        tools = [convert_to_openai_tool(item) for item in request.tools]
+        base = request.system_message.content if request.system_message else ""
+        reserved = estimated_tokens({"system": base, "state": snapshot, "tools": tools})
+        compiled, manifest = compile_context(request.messages, token_budget=context.context_budget_tokens, reserved_tokens=reserved)
+        snapshot["context_manifest"] = manifest
+        system = base + "\n\n<enterprise_work_context>" + json.dumps(snapshot, ensure_ascii=False) + "</enterprise_work_context>"
+        return handler(request.override(system_message=SystemMessage(content=system), messages=compiled))
+
+
+class EnterpriseAgentRuntime(AgentRuntime):
+    def __init__(self, *, active_task_id: str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self.active_task_id = active_task_id
+
+    def _prepare_context(self, context: AgentContext) -> None:
+        context.active_work_item_id = self.active_task_id
+
+    def _database_ready(self) -> bool:
+        try:
+            with closing(sqlite3.connect(Path(self.database_path).resolve().as_uri() + "?mode=ro", uri=True)) as database:
+                row = database.execute("SELECT value FROM meta WHERE key='enterprise_schema_version'").fetchone()
+                return bool(row and database.execute("SELECT COUNT(*) FROM companies").fetchone()[0])
+        except sqlite3.Error:
+            return False
+
+    def _context_snapshot(self, user_id: str, company_id: str) -> dict[str, Any]:
+        with EnterpriseDatabase(self.database_path) as database:
+            actor = _actor(database, user_id)
+            service = EnterpriseService(database)
+            service._role(actor, company_id, {"accountant", "reviewer"})
+            return {"user_id": user_id, "current_company_id": company_id,
+                    "work_items": service.list_work_items(user=actor, company_id=company_id, page_size=100)["items"]}
+
+    def run_turn(self, *, session_id: str, user_id: str, company_id: str | None, message: str, model=None,
+                 live_authorized: bool = False, budget_usd: float | None = None,
+                 attachment_observations: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        if not self._database_ready():
+            return {"status": "database_not_initialized", "summary": "企业工作台尚未完成初始化。"}
+        try:
+            session = self.agent_store.session(session_id, user_id)
+        except SessionOwnershipError as error:
+            return {"status": "permission_denied", "summary": str(error)}
+        target = company_id or (session or {}).get("current_company_id")
+        if not target:
+            return {"status": "missing_input", "summary": "请先选择企业。"}
+        try:
+            with EnterpriseDatabase(self.database_path) as database:
+                actor = _actor(database, user_id)
+                EnterpriseService(database)._role(actor, target, {"accountant", "reviewer"})
+                TaxService(database).require_access(user_id=user_id, company_id=target)
+        except (TaxHarnessError, PermissionError) as error:
+            return {"status": "permission_denied", "summary": str(error)}
+        return super().run_turn(session_id=session_id, user_id=user_id, company_id=company_id, message=message,
+                                model=model, live_authorized=live_authorized, budget_usd=budget_usd,
+                                attachment_observations=attachment_observations)
+
+    def _graph(self, model):
+        key = id(model)
+        if key not in self._graph_cache:
+            self._graph_cache[key] = create_agent(model=model, tools=make_enterprise_tools(), system_prompt=SYSTEM,
+                context_schema=AgentContext, checkpointer=self.checkpointer,
+                middleware=[CancellationMiddleware(), BatchGuardMiddleware(), EnterpriseToolErrors(), EnterpriseProgramContext(), BudgetMiddleware()],
+                name="enterprise-taxharness-agent")
+        return self._graph_cache[key]
+
+    def _recover_unfinished_tools(self, graph, config, context: AgentContext, previous_turn_id: str | None) -> bool:
+        snapshot = graph.get_state(config)
+        messages = snapshot.values.get("messages", [])
+        if not snapshot.next or not messages or not isinstance(messages[-1], AIMessage) or not messages[-1].tool_calls:
+            return False
+        recovered = []
+        for call in messages[-1].tool_calls:
+            payload: dict[str, Any] = {"status": "interrupted_unknown", "summary": "上一轮操作被中断，请先读取工作项和草稿状态再决定下一步。"}
+            if call["name"] == "enterprise_confirm_drafts":
+                items = []
+                with EnterpriseDatabase(context.database_path) as database:
+                    actor = _actor(database, context.user_id)
+                    for reference in call.get("args", {}).get("drafts", []):
+                        row = database.connection.execute("SELECT * FROM enterprise_confirmation_receipts WHERE draft_id=?", (reference.get("draft_id"),)).fetchone()
+                        if row is None:
+                            items.append({"draft_id": reference.get("draft_id"), "status": "no_receipt"})
+                            continue
+                        EnterpriseService(database)._role(actor, row["company_id"], {"accountant", "reviewer"})
+                        TaxService(database).require_access(user_id=context.user_id, company_id=row["company_id"])
+                        current = TaxService(database).read_invoice(user_id=context.user_id, company_id=row["company_id"], invoice_id=row["invoice_id"])
+                        items.append({"draft_id": row["draft_id"], "status": "committed", "result": json.loads(row["result_json"]), "current": current.get("data")})
+                payload = {"status": "recovered", "items": items, "summary": "已核对确认回执；未找到回执的项目请先刷新工作项。"}
+                context.recovered_operations.append(payload)
+            recovered.append(ToolMessage(content=json.dumps(payload, ensure_ascii=False), tool_call_id=call["id"], name=call["name"]))
+        graph.update_state(config, {"messages": recovered}, as_node="tools")
+        return True

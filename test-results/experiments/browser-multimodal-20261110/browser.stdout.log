@@ -1,0 +1,5 @@
+TaxAgentHarness Chainlit UI ready on configured paths; database=D:\AIºÚ¿ÍËÉ\TaxAgentHarness\artifacts\taskledger_upgrade_20261110\experiments\browser-multimodal-20261110\business.sqlite3
+2026-11-10 20:11:30 - INFO - chainlit - Your app is available at http://localhost:8020
+2026-11-10 20:11:41 - WARNING - chainlit - Translated markdown file for zh-CN not found. Defaulting to chainlit.md.
+2026-11-10 20:11:41 - INFO - chainlit - Missing custom logo. Falling back to default logo.
+2026-11-10 20:12:27 - WARNING - chainlit - Translated markdown file for zh-CN not found. Defaulting to chainlit.md.

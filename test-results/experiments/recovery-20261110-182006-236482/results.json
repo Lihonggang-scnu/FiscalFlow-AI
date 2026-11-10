@@ -1,0 +1,37 @@
+{
+  "scenario": "receipt_lost",
+  "steps": [
+    {
+      "name": "提交后中断",
+      "status": "error",
+      "invoice": {
+        "purpose": "购买培训资料",
+        "remarks": null,
+        "revision": 2
+      },
+      "commits": 1
+    },
+    {
+      "name": "重启后核对",
+      "status": "ok",
+      "reply": "甲企业（比赛模拟）2026-09 的发票 F002（书林图文（模拟），开票日期 2026-09-08，金额 800.00 元）：\n\n- 那次保存：上一轮保存操作实际已提交成功，只是回执显示为重复提交；保存前用途为空，保存后用途为“购买培训资料”。\n- 现在状态：重新读取后，用途仍为“购买培训资料”，备注为空，revision 为 2，与那次保存结果一致。\n\n本次只做了核对，没有再次修改发票。",
+      "invoice": {
+        "purpose": "购买培训资料",
+        "remarks": null,
+        "revision": 2
+      },
+      "commits": 1
+    }
+  ],
+  "checks": {
+    "interruption_reproduced": true,
+    "recovery_completed": true,
+    "current_value_correct": true,
+    "current_value_in_reply": true,
+    "historical_receipt_explained": true,
+    "no_duplicate_write": true
+  },
+  "passed": true,
+  "model_calls": 4,
+  "estimated_increment_cny": 0.031164
+}

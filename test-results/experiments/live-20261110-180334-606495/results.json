@@ -1,0 +1,3771 @@
+{
+  "created_at": "2026-11-10T18:03:34.810562+08:00",
+  "run_dir": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\experiments\\live-20261110-180334-606495",
+  "budget_cny": 10,
+  "initial_ledger_calls": 944,
+  "steps": [
+    {
+      "name": "建立任务并暂缓",
+      "request": "为甲企业2026年9月建立只跟进F003和F009的用途补全任务。F009先等我向经办人核实，不用问我；告诉我还需要什么。",
+      "reply": "任务已建立：甲企业（比赛模拟）2026年9月，只跟进 F003 和 F009 两张票，当前状态为进行中。F009 已按你的要求标记为暂缓，等你向经办人核实，我不会再追问它。\n\n还需要你补充的信息只有一项：F003 的实际业务用途。\n\n- F003：2026-09-16，晓风快递（模拟），快递服务，300.00 元，用途目前为空\n- F009：2026-09-29，澄宇设备（模拟），设备配件，680.68 元，用途为空，已暂缓\n\n依据：甲企业 2026年9月适用用途规则 R002（2.0 版），要求每张发票都必须填写用途。请告诉我 F003 这笔快递实际用于什么业务或活动，我再据此整理并保存。",
+      "tools": [
+        {
+          "name": "task_create",
+          "result": {
+            "status": "created",
+            "task": {
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "user_id": "U001",
+              "company_id": "C001",
+              "month": "2026-09",
+              "scope": "selected",
+              "status": "open",
+              "message": "任务进行中。",
+              "next_step": "补充待办发票用途",
+              "revision": 1,
+              "created_at": "2026-11-10T10:03:38.195873+00:00",
+              "updated_at": "2026-11-10T10:03:38.195873+00:00",
+              "closed_at": null,
+              "target_invoice_ids": [
+                "F003",
+                "F009"
+              ],
+              "pending_invoice_ids": [
+                "F003",
+                "F009"
+              ]
+            }
+          }
+        },
+        {
+          "name": "read_invoice",
+          "result": {
+            "status": "ok",
+            "data": {
+              "company_id": "C001",
+              "invoice_id": "F003",
+              "issue_date": "2026-09-16",
+              "seller_name": "晓风快递（模拟）",
+              "project_name": "快递服务",
+              "amount": "300.00",
+              "purpose": null,
+              "remarks": null,
+              "revision": 1
+            }
+          }
+        },
+        {
+          "name": "read_invoice",
+          "result": {
+            "status": "ok",
+            "data": {
+              "company_id": "C001",
+              "invoice_id": "F009",
+              "issue_date": "2026-09-29",
+              "seller_name": "澄宇设备（模拟）",
+              "project_name": "设备配件",
+              "amount": "680.68",
+              "purpose": null,
+              "remarks": null,
+              "revision": 1
+            }
+          }
+        },
+        {
+          "name": "update_task_memory",
+          "result": {
+            "status": "ok",
+            "event_ids": [
+              "ledger-861832c689eb49d4b6c60ee996408085"
+            ],
+            "memory": {
+              "drafts": {},
+              "deferred": {
+                "F009": "用户需向经办人核实实际业务用途"
+              },
+              "deferred_sources": {
+                "F009": "turn-46e9c8987bea4e53bfb857068920c9e4"
+              },
+              "notes": {},
+              "asked": [],
+              "tasks": {
+                "task-dbfb7ab88fdc42d69d5d93adee0d0a52": {
+                  "closed_at": null,
+                  "company_id": "C001",
+                  "created_at": "2026-11-10T10:03:38.195873+00:00",
+                  "message": "任务进行中。",
+                  "month": "2026-09",
+                  "next_step": "补充待办发票用途",
+                  "pending_invoice_ids": [
+                    "F003",
+                    "F009"
+                  ],
+                  "revision": 1,
+                  "scope": "selected",
+                  "status": "open",
+                  "target_invoice_ids": [
+                    "F003",
+                    "F009"
+                  ],
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "updated_at": "2026-11-10T10:03:38.195873+00:00",
+                  "user_id": "U001"
+                }
+              },
+              "invoice_events": {},
+              "rule_events": {
+                "R001": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "amount_statistics",
+                  "rule_id": "R001",
+                  "status": "active",
+                  "version": "1.0"
+                },
+                "R002": {
+                  "condition": {
+                    "type": "all"
+                  },
+                  "effective_from": "2026-09-01",
+                  "kind": "invoice_purpose",
+                  "rule_id": "R002",
+                  "status": "active",
+                  "version": "2.0"
+                },
+                "R004": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "bank_requirements",
+                  "rule_id": "R004",
+                  "status": "active",
+                  "version": "1.0"
+                }
+              }
+            },
+            "work": {
+              "status": "ok",
+              "frontier": {
+                "company_id": "C001",
+                "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                "month": "2026-09",
+                "scope": "selected",
+                "task_revision": 1,
+                "task_status": "open",
+                "target_invoice_ids": [
+                  "F003",
+                  "F009"
+                ],
+                "needs_input": [
+                  "F003"
+                ],
+                "ready_to_save": [],
+                "awaiting_confirmation": [],
+                "waiting": [
+                  "F009"
+                ],
+                "completed": [],
+                "drafts": {},
+                "waiting_reasons": {
+                  "F009": "用户需向经办人核实实际业务用途"
+                },
+                "notes": {},
+                "rule": {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                "invoice_revisions": {
+                  "F003": 1,
+                  "F009": 1
+                },
+                "dependencies": {
+                  "F003": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  },
+                  "F009": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  }
+                },
+                "next_actions": [
+                  {
+                    "action": "ask",
+                    "invoice_ids": [
+                      "F003"
+                    ]
+                  },
+                  {
+                    "action": "wait",
+                    "invoice_ids": [
+                      "F009"
+                    ]
+                  }
+                ]
+              },
+              "diff": {
+                "initial": false,
+                "added_targets": [],
+                "removed_targets": [],
+                "changes": {
+                  "needs_input": {
+                    "added": [],
+                    "removed": [
+                      "F009"
+                    ]
+                  },
+                  "waiting": {
+                    "added": [
+                      "F009"
+                    ],
+                    "removed": []
+                  },
+                  "waiting_reasons": {
+                    "F009": "用户需向经办人核实实际业务用途"
+                  }
+                },
+                "affected_targets": [
+                  "F009"
+                ],
+                "unchanged_targets": [
+                  "F003"
+                ],
+                "basis_changed": false
+              },
+              "recent_questions": []
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "targets": [
+          "F003",
+          "F009"
+        ],
+        "waiting": [
+          "F009"
+        ]
+      }
+    },
+    {
+      "name": "长对话查询 1",
+      "request": "查询甲企业 2026 年 8 月发票总额，简短回答。",
+      "reply": "甲企业 2026 年 8 月发票总额为 9046.35 元，共 10 张发票。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-08",
+                "invoice_count": 10,
+                "invoice_total": "9046.35",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F011",
+                    "issue_date": "2026-08-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "复印纸、文件夹",
+                    "amount": "460.50",
+                    "purpose": null,
+                    "remarks": "八月办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F012",
+                    "issue_date": "2026-08-03",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "便携投影设备",
+                    "amount": "1200.00",
+                    "purpose": "采购演示用设备",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F013",
+                    "issue_date": "2026-08-06",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "宣传页印制",
+                    "amount": "339.50",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F014",
+                    "issue_date": "2026-08-09",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F015",
+                    "issue_date": "2026-08-12",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "系统维护服务",
+                    "amount": "1000.00",
+                    "purpose": "年度系统维护",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F016",
+                    "issue_date": "2026-08-16",
+                    "seller_name": "平川物流（模拟）",
+                    "project_name": "运输服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "物品已签收",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F017",
+                    "issue_date": "2026-08-20",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2680.00",
+                    "purpose": "员工异地培训住宿",
+                    "remarks": "培训人员两名",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F018",
+                    "issue_date": "2026-08-24",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "185.60",
+                    "purpose": "业务资料快递",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F019",
+                    "issue_date": "2026-08-28",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "460.50",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F020",
+                    "issue_date": "2026-08-31",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "装订、打印服务",
+                    "amount": "720.25",
+                    "purpose": "客户资料打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-08",
+                "record_count": 12,
+                "income": "14850.75",
+                "expense": "5720.99",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "9046.35",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 2",
+      "request": "只查甲企业 2026 年 9 月银行收入。",
+      "reply": "甲企业（比赛模拟）2026 年 9 月银行收入合计为 13,000.50 元，共 12 条银行记录。\n\n依据《金额统计说明》R001 1.0 版，银行收入按收入方向单独汇总，不与支出相抵。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "invoice_count": 10,
+                "invoice_total": "9622.06",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F001",
+                    "issue_date": "2026-09-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公文具",
+                    "amount": "500.00",
+                    "purpose": "购买办公文具",
+                    "remarks": "日常办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F002",
+                    "issue_date": "2026-09-08",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "复印纸、打印服务",
+                    "amount": "800.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F004",
+                    "issue_date": "2026-09-10",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F005",
+                    "issue_date": "2026-09-12",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "1000.00",
+                    "purpose": "办公场地清洁",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F003",
+                    "issue_date": "2026-09-16",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "300.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F006",
+                    "issue_date": "2026-09-20",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "信息技术服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "按月结算",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F007",
+                    "issue_date": "2026-09-24",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "会议场地服务",
+                    "amount": "1280.50",
+                    "purpose": "客户演示场地租用",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F008",
+                    "issue_date": "2026-09-28",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2560.88",
+                    "purpose": "员工出差住宿",
+                    "remarks": "项目交流出差",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F009",
+                    "issue_date": "2026-09-29",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "设备配件",
+                    "amount": "680.68",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F010",
+                    "issue_date": "2026-09-30",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "打印服务",
+                    "amount": "500.00",
+                    "purpose": "日常文件打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "record_count": 12,
+                "income": "13000.50",
+                "expense": "7180.74",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C001",
+                  "effective_from": "2026-09-01",
+                  "status": "active",
+                  "content": "R002 甲企业发票用途规则 2.0版\n从 2026 年 9 月起，甲企业每张发票都必须填写用途，不设置金额门槛。空白或只有空格视为未填写，备注不能代替用途。\n检查时查询当前发票，列出未填用途的编号。用户补充用途时，应确认企业、发票和内容，检查修改权限，保存后再查询核对。企业编号和发票编号共同确定一张发票，不能修改其他企业的同编号记录。只查询或询问规则不代表授权修改。\n本版取代已停用的 1.0 版。回答可注明“依据《甲企业发票用途规则》2.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "all"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "13000.50",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 3",
+      "request": "临时查乙企业 2026 年 8 月银行支出，不切换当前办理企业。",
+      "reply": "乙企业（比赛模拟）2026 年 8 月银行支出合计 9341.10 元，共 12 条银行记录（含收入与支出）。\n\n依据《银行资料说明》1.0 版：支出按收支方向单独汇总，金额为正数，不用收入减支出代替支出总额。本次为临时查询，当前办理企业仍为甲企业。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C002",
+                "month": "2026-08",
+                "invoice_count": 10,
+                "invoice_total": "13667.05",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F011",
+                    "issue_date": "2026-08-01",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "宣传册印刷",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F012",
+                    "issue_date": "2026-08-03",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "资料印刷",
+                    "amount": "1000.00",
+                    "purpose": "项目资料印刷",
+                    "remarks": "八月项目资料",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F013",
+                    "issue_date": "2026-08-06",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "办公设备",
+                    "amount": "2200.01",
+                    "purpose": "办公设备采购",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F014",
+                    "issue_date": "2026-08-09",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "780.60",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F015",
+                    "issue_date": "2026-08-12",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "1580.25",
+                    "purpose": "客户展会住宿",
+                    "remarks": "两日住宿",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F016",
+                    "issue_date": "2026-08-16",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "系统维护服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F017",
+                    "issue_date": "2026-08-20",
+                    "seller_name": "衡川咨询（模拟）",
+                    "project_name": "管理咨询服务",
+                    "amount": "3600.00",
+                    "purpose": "项目咨询服务",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F018",
+                    "issue_date": "2026-08-24",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公耗材",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F019",
+                    "issue_date": "2026-08-28",
+                    "seller_name": "平川物流（模拟）",
+                    "project_name": "运输服务",
+                    "amount": "245.80",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F020",
+                    "issue_date": "2026-08-31",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "培训资料服务",
+                    "amount": "1260.40",
+                    "purpose": "员工培训资料",
+                    "remarks": "月底培训",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C002",
+                "month": "2026-08",
+                "record_count": 12,
+                "income": "18800.25",
+                "expense": "9341.10",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R003",
+                  "version": "1.0",
+                  "name": "乙企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C002",
+                  "effective_from": "2026-08-01",
+                  "status": "active",
+                  "content": "R003 乙企业发票用途规则 1.0版\n单张发票金额大于或等于 1000.00 元时必须填写用途，等于 1000 元也在范围内；低于此金额可以不填。空白或只有空格视为未填写，备注不能代替用途。\n检查应使用当前金额和用途。不能套用甲企业“每张必填”的规则，也不能把允许不填的发票列为不符合要求。用户可以主动补充低于门槛发票的用途，但仍须具备修改权限，并明确要修改的企业、发票和内容。\n回答可注明“依据《乙企业发票用途规则》1.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "amount_cents": 100000,
+                    "type": "amount_gte"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "发票金额大于或等于 1000.00 元时必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "9341.10",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 4",
+      "request": "甲企业 2026 年 9 月发票总额是多少？",
+      "reply": "甲企业（比赛模拟）2026 年 9 月发票总额为 9,622.06 元，共 10 张发票。\n\n依据《金额统计说明》1.0 版：发票总额为该企业该月全部发票金额（价税合计）之和，是否填写用途不影响金额查询。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "invoice_count": 10,
+                "invoice_total": "9622.06",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F001",
+                    "issue_date": "2026-09-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公文具",
+                    "amount": "500.00",
+                    "purpose": "购买办公文具",
+                    "remarks": "日常办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F002",
+                    "issue_date": "2026-09-08",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "复印纸、打印服务",
+                    "amount": "800.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F004",
+                    "issue_date": "2026-09-10",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F005",
+                    "issue_date": "2026-09-12",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "1000.00",
+                    "purpose": "办公场地清洁",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F003",
+                    "issue_date": "2026-09-16",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "300.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F006",
+                    "issue_date": "2026-09-20",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "信息技术服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "按月结算",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F007",
+                    "issue_date": "2026-09-24",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "会议场地服务",
+                    "amount": "1280.50",
+                    "purpose": "客户演示场地租用",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F008",
+                    "issue_date": "2026-09-28",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2560.88",
+                    "purpose": "员工出差住宿",
+                    "remarks": "项目交流出差",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F009",
+                    "issue_date": "2026-09-29",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "设备配件",
+                    "amount": "680.68",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F010",
+                    "issue_date": "2026-09-30",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "打印服务",
+                    "amount": "500.00",
+                    "purpose": "日常文件打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "record_count": 12,
+                "income": "13000.50",
+                "expense": "7180.74",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C001",
+                  "effective_from": "2026-09-01",
+                  "status": "active",
+                  "content": "R002 甲企业发票用途规则 2.0版\n从 2026 年 9 月起，甲企业每张发票都必须填写用途，不设置金额门槛。空白或只有空格视为未填写，备注不能代替用途。\n检查时查询当前发票，列出未填用途的编号。用户补充用途时，应确认企业、发票和内容，检查修改权限，保存后再查询核对。企业编号和发票编号共同确定一张发票，不能修改其他企业的同编号记录。只查询或询问规则不代表授权修改。\n本版取代已停用的 1.0 版。回答可注明“依据《甲企业发票用途规则》2.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "all"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "9622.06",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 5",
+      "request": "重新查一次甲企业 2026 年 8 月发票总额。",
+      "reply": "甲企业（比赛模拟）2026 年 8 月发票总额为 9046.35 元，共 10 张发票。\n\n依据：R001 金额统计说明 1.0 版，发票总额为该企业该月全部发票价税合计之和，是否填写用途不影响金额查询。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-08",
+                "invoice_count": 10,
+                "invoice_total": "9046.35",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F011",
+                    "issue_date": "2026-08-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "复印纸、文件夹",
+                    "amount": "460.50",
+                    "purpose": null,
+                    "remarks": "八月办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F012",
+                    "issue_date": "2026-08-03",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "便携投影设备",
+                    "amount": "1200.00",
+                    "purpose": "采购演示用设备",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F013",
+                    "issue_date": "2026-08-06",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "宣传页印制",
+                    "amount": "339.50",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F014",
+                    "issue_date": "2026-08-09",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F015",
+                    "issue_date": "2026-08-12",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "系统维护服务",
+                    "amount": "1000.00",
+                    "purpose": "年度系统维护",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F016",
+                    "issue_date": "2026-08-16",
+                    "seller_name": "平川物流（模拟）",
+                    "project_name": "运输服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "物品已签收",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F017",
+                    "issue_date": "2026-08-20",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2680.00",
+                    "purpose": "员工异地培训住宿",
+                    "remarks": "培训人员两名",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F018",
+                    "issue_date": "2026-08-24",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "185.60",
+                    "purpose": "业务资料快递",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F019",
+                    "issue_date": "2026-08-28",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "460.50",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F020",
+                    "issue_date": "2026-08-31",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "装订、打印服务",
+                    "amount": "720.25",
+                    "purpose": "客户资料打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-08",
+                "record_count": 12,
+                "income": "14850.75",
+                "expense": "5720.99",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "9046.35",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 6",
+      "request": "乙企业 2026 年 8 月银行收入是多少？只做临时查询。",
+      "reply": "乙企业（比赛模拟）2026 年 8 月银行收入为 18,800.25 元，共 12 条银行记录。\n\n依据《金额统计说明》1.0 版，银行收入按收入方向单独汇总。本次仅为临时查询，当前办理企业仍为甲企业。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C002",
+                "month": "2026-08",
+                "invoice_count": 10,
+                "invoice_total": "13667.05",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F011",
+                    "issue_date": "2026-08-01",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "宣传册印刷",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F012",
+                    "issue_date": "2026-08-03",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "资料印刷",
+                    "amount": "1000.00",
+                    "purpose": "项目资料印刷",
+                    "remarks": "八月项目资料",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F013",
+                    "issue_date": "2026-08-06",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "办公设备",
+                    "amount": "2200.01",
+                    "purpose": "办公设备采购",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F014",
+                    "issue_date": "2026-08-09",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "780.60",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F015",
+                    "issue_date": "2026-08-12",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "1580.25",
+                    "purpose": "客户展会住宿",
+                    "remarks": "两日住宿",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F016",
+                    "issue_date": "2026-08-16",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "系统维护服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F017",
+                    "issue_date": "2026-08-20",
+                    "seller_name": "衡川咨询（模拟）",
+                    "project_name": "管理咨询服务",
+                    "amount": "3600.00",
+                    "purpose": "项目咨询服务",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F018",
+                    "issue_date": "2026-08-24",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公耗材",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F019",
+                    "issue_date": "2026-08-28",
+                    "seller_name": "平川物流（模拟）",
+                    "project_name": "运输服务",
+                    "amount": "245.80",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F020",
+                    "issue_date": "2026-08-31",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "培训资料服务",
+                    "amount": "1260.40",
+                    "purpose": "员工培训资料",
+                    "remarks": "月底培训",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C002",
+                "month": "2026-08",
+                "record_count": 12,
+                "income": "18800.25",
+                "expense": "9341.10",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R003",
+                  "version": "1.0",
+                  "name": "乙企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C002",
+                  "effective_from": "2026-08-01",
+                  "status": "active",
+                  "content": "R003 乙企业发票用途规则 1.0版\n单张发票金额大于或等于 1000.00 元时必须填写用途，等于 1000 元也在范围内；低于此金额可以不填。空白或只有空格视为未填写，备注不能代替用途。\n检查应使用当前金额和用途。不能套用甲企业“每张必填”的规则，也不能把允许不填的发票列为不符合要求。用户可以主动补充低于门槛发票的用途，但仍须具备修改权限，并明确要修改的企业、发票和内容。\n回答可注明“依据《乙企业发票用途规则》1.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "amount_cents": 100000,
+                    "type": "amount_gte"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "发票金额大于或等于 1000.00 元时必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "18800.25",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 7",
+      "request": "甲企业 2026 年 9 月银行支出是多少？",
+      "reply": "甲企业（比赛模拟）2026 年 9 月银行支出合计为 7,180.74 元，共 12 条银行记录。\n\n依据《金额统计说明》1.0 版：银行支出按支出方向单独相加，不扣减收入，也不与发票总额相互替代。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "invoice_count": 10,
+                "invoice_total": "9622.06",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F001",
+                    "issue_date": "2026-09-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公文具",
+                    "amount": "500.00",
+                    "purpose": "购买办公文具",
+                    "remarks": "日常办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F002",
+                    "issue_date": "2026-09-08",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "复印纸、打印服务",
+                    "amount": "800.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F004",
+                    "issue_date": "2026-09-10",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F005",
+                    "issue_date": "2026-09-12",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "1000.00",
+                    "purpose": "办公场地清洁",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F003",
+                    "issue_date": "2026-09-16",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "300.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F006",
+                    "issue_date": "2026-09-20",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "信息技术服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "按月结算",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F007",
+                    "issue_date": "2026-09-24",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "会议场地服务",
+                    "amount": "1280.50",
+                    "purpose": "客户演示场地租用",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F008",
+                    "issue_date": "2026-09-28",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2560.88",
+                    "purpose": "员工出差住宿",
+                    "remarks": "项目交流出差",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F009",
+                    "issue_date": "2026-09-29",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "设备配件",
+                    "amount": "680.68",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F010",
+                    "issue_date": "2026-09-30",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "打印服务",
+                    "amount": "500.00",
+                    "purpose": "日常文件打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "record_count": 12,
+                "income": "13000.50",
+                "expense": "7180.74",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C001",
+                  "effective_from": "2026-09-01",
+                  "status": "active",
+                  "content": "R002 甲企业发票用途规则 2.0版\n从 2026 年 9 月起，甲企业每张发票都必须填写用途，不设置金额门槛。空白或只有空格视为未填写，备注不能代替用途。\n检查时查询当前发票，列出未填用途的编号。用户补充用途时，应确认企业、发票和内容，检查修改权限，保存后再查询核对。企业编号和发票编号共同确定一张发票，不能修改其他企业的同编号记录。只查询或询问规则不代表授权修改。\n本版取代已停用的 1.0 版。回答可注明“依据《甲企业发票用途规则》2.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "all"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "7180.74",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 8",
+      "request": "只查甲企业 2026 年 8 月银行收入。",
+      "reply": "甲企业（比赛模拟）2026 年 8 月银行收入合计 14850.75 元，共 12 条银行记录（含收入与支出）。依据 R001 金额统计说明，收入按收支方向单独汇总。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-08",
+                "invoice_count": 10,
+                "invoice_total": "9046.35",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F011",
+                    "issue_date": "2026-08-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "复印纸、文件夹",
+                    "amount": "460.50",
+                    "purpose": null,
+                    "remarks": "八月办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F012",
+                    "issue_date": "2026-08-03",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "便携投影设备",
+                    "amount": "1200.00",
+                    "purpose": "采购演示用设备",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F013",
+                    "issue_date": "2026-08-06",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "宣传页印制",
+                    "amount": "339.50",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F014",
+                    "issue_date": "2026-08-09",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F015",
+                    "issue_date": "2026-08-12",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "系统维护服务",
+                    "amount": "1000.00",
+                    "purpose": "年度系统维护",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F016",
+                    "issue_date": "2026-08-16",
+                    "seller_name": "平川物流（模拟）",
+                    "project_name": "运输服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "物品已签收",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F017",
+                    "issue_date": "2026-08-20",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2680.00",
+                    "purpose": "员工异地培训住宿",
+                    "remarks": "培训人员两名",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F018",
+                    "issue_date": "2026-08-24",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "185.60",
+                    "purpose": "业务资料快递",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F019",
+                    "issue_date": "2026-08-28",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "460.50",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F020",
+                    "issue_date": "2026-08-31",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "装订、打印服务",
+                    "amount": "720.25",
+                    "purpose": "客户资料打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-08",
+                "record_count": 12,
+                "income": "14850.75",
+                "expense": "5720.99",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "14850.75",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "长对话查询 9",
+      "request": "再查一次甲企业 2026 年 9 月发票总额。",
+      "reply": "甲企业（比赛模拟）2026 年 9 月发票总额为 9,622.06 元，共 10 张发票。\n\n依据《金额统计说明》R001 1.0 版：发票金额为价税合计，发票总额为该企业该月全部发票金额之和，是否填写用途不影响金额查询。",
+      "tools": [
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "invoice_count": 10,
+                "invoice_total": "9622.06",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F001",
+                    "issue_date": "2026-09-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公文具",
+                    "amount": "500.00",
+                    "purpose": "购买办公文具",
+                    "remarks": "日常办公采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F002",
+                    "issue_date": "2026-09-08",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "复印纸、打印服务",
+                    "amount": "800.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F004",
+                    "issue_date": "2026-09-10",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F005",
+                    "issue_date": "2026-09-12",
+                    "seller_name": "山海物业（模拟）",
+                    "project_name": "保洁服务",
+                    "amount": "1000.00",
+                    "purpose": "办公场地清洁",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F003",
+                    "issue_date": "2026-09-16",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "300.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F006",
+                    "issue_date": "2026-09-20",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "信息技术服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": "按月结算",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F007",
+                    "issue_date": "2026-09-24",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "会议场地服务",
+                    "amount": "1280.50",
+                    "purpose": "客户演示场地租用",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F008",
+                    "issue_date": "2026-09-28",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "2560.88",
+                    "purpose": "员工出差住宿",
+                    "remarks": "项目交流出差",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F009",
+                    "issue_date": "2026-09-29",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "设备配件",
+                    "amount": "680.68",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C001",
+                    "invoice_id": "F010",
+                    "issue_date": "2026-09-30",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "打印服务",
+                    "amount": "500.00",
+                    "purpose": "日常文件打印",
+                    "remarks": "月底资料整理",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C001",
+                "month": "2026-09",
+                "record_count": 12,
+                "income": "13000.50",
+                "expense": "7180.74",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C001",
+                  "effective_from": "2026-09-01",
+                  "status": "active",
+                  "content": "R002 甲企业发票用途规则 2.0版\n从 2026 年 9 月起，甲企业每张发票都必须填写用途，不设置金额门槛。空白或只有空格视为未填写，备注不能代替用途。\n检查时查询当前发票，列出未填用途的编号。用户补充用途时，应确认企业、发票和内容，检查修改权限，保存后再查询核对。企业编号和发票编号共同确定一张发票，不能修改其他企业的同编号记录。只查询或询问规则不代表授权修改。\n本版取代已停用的 1.0 版。回答可注明“依据《甲企业发票用途规则》2.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "all"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "expected": "9622.06",
+        "company": "C001"
+      }
+    },
+    {
+      "name": "保存第一张",
+      "request": "F003实际用于寄送客户验收文件，请保存用途。F009仍然等待，我核实好再说。",
+      "reply": "已办理（甲企业，2026-09）：\n\n- F003（晓风快递，快递服务，300.00 元）：用途已保存为“寄送客户验收文件”。\n- F009：已按你的要求标记为等待，等你核实实际业务用途后再补填。\n\n当前任务仍未完成，剩余待办只有 F009。",
+      "tools": [
+        {
+          "name": "read_invoice",
+          "result": {
+            "status": "ok",
+            "data": {
+              "company_id": "C001",
+              "invoice_id": "F003",
+              "issue_date": "2026-09-16",
+              "seller_name": "晓风快递（模拟）",
+              "project_name": "快递服务",
+              "amount": "300.00",
+              "purpose": null,
+              "remarks": null,
+              "revision": 1
+            }
+          }
+        },
+        {
+          "name": "save_invoice",
+          "result": {
+            "status": "committed",
+            "committed": true,
+            "replayed": false,
+            "before": {
+              "company_id": "C001",
+              "invoice_id": "F003",
+              "issue_date": "2026-09-16",
+              "seller_name": "晓风快递（模拟）",
+              "project_name": "快递服务",
+              "amount": "300.00",
+              "purpose": null,
+              "remarks": null,
+              "revision": 1
+            },
+            "after": {
+              "company_id": "C001",
+              "invoice_id": "F003",
+              "issue_date": "2026-09-16",
+              "seller_name": "晓风快递（模拟）",
+              "project_name": "快递服务",
+              "amount": "300.00",
+              "purpose": "寄送客户验收文件",
+              "remarks": null,
+              "revision": 2
+            },
+            "rechecked": true,
+            "task": {
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "user_id": "U001",
+              "company_id": "C001",
+              "month": "2026-09",
+              "scope": "selected",
+              "status": "open",
+              "message": "任务进行中。",
+              "next_step": "补充待办发票用途",
+              "revision": 2,
+              "created_at": "2026-11-10T10:03:38.195873+00:00",
+              "updated_at": "2026-11-10T10:04:05.323196+00:00",
+              "closed_at": null,
+              "target_invoice_ids": [
+                "F003",
+                "F009"
+              ],
+              "pending_invoice_ids": [
+                "F009"
+              ]
+            },
+            "task_progress_updated": true,
+            "task_refresh_status": "ok"
+          }
+        },
+        {
+          "name": "update_task_memory",
+          "result": {
+            "status": "ok",
+            "event_ids": [
+              "ledger-04c7a0b0111046598e1c0774de097d68"
+            ],
+            "memory": {
+              "drafts": {},
+              "deferred": {
+                "F009": "用户需向经办人核实实际业务用途"
+              },
+              "deferred_sources": {
+                "F009": "turn-39c1b43aa8444a51988fbcb098dae967"
+              },
+              "notes": {},
+              "asked": [],
+              "tasks": {
+                "task-dbfb7ab88fdc42d69d5d93adee0d0a52": {
+                  "closed_at": null,
+                  "company_id": "C001",
+                  "created_at": "2026-11-10T10:03:38.195873+00:00",
+                  "message": "任务进行中。",
+                  "month": "2026-09",
+                  "next_step": "补充待办发票用途",
+                  "pending_invoice_ids": [
+                    "F009"
+                  ],
+                  "revision": 2,
+                  "scope": "selected",
+                  "status": "open",
+                  "target_invoice_ids": [
+                    "F003",
+                    "F009"
+                  ],
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "updated_at": "2026-11-10T10:04:05.323196+00:00",
+                  "user_id": "U001"
+                }
+              },
+              "invoice_events": {
+                "F003": {
+                  "after_revision": 2,
+                  "before_revision": 1,
+                  "fields": [
+                    "purpose"
+                  ],
+                  "invoice_id": "F003",
+                  "operation_id": "op-32be90e6475747ab9256e7437de83992"
+                }
+              },
+              "rule_events": {
+                "R001": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "amount_statistics",
+                  "rule_id": "R001",
+                  "status": "active",
+                  "version": "1.0"
+                },
+                "R002": {
+                  "condition": {
+                    "type": "all"
+                  },
+                  "effective_from": "2026-09-01",
+                  "kind": "invoice_purpose",
+                  "rule_id": "R002",
+                  "status": "active",
+                  "version": "2.0"
+                },
+                "R004": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "bank_requirements",
+                  "rule_id": "R004",
+                  "status": "active",
+                  "version": "1.0"
+                }
+              }
+            },
+            "work": {
+              "status": "ok",
+              "frontier": {
+                "company_id": "C001",
+                "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                "month": "2026-09",
+                "scope": "selected",
+                "task_revision": 2,
+                "task_status": "open",
+                "target_invoice_ids": [
+                  "F003",
+                  "F009"
+                ],
+                "needs_input": [],
+                "ready_to_save": [],
+                "awaiting_confirmation": [],
+                "waiting": [
+                  "F009"
+                ],
+                "completed": [
+                  "F003"
+                ],
+                "drafts": {},
+                "waiting_reasons": {
+                  "F009": "用户需向经办人核实实际业务用途"
+                },
+                "notes": {},
+                "rule": {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                "invoice_revisions": {
+                  "F003": 2,
+                  "F009": 1
+                },
+                "dependencies": {
+                  "F003": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 2,
+                    "invoice_revision": 2,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  },
+                  "F009": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 2,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  }
+                },
+                "next_actions": [
+                  {
+                    "action": "wait",
+                    "invoice_ids": [
+                      "F009"
+                    ]
+                  }
+                ]
+              },
+              "diff": {
+                "initial": false,
+                "added_targets": [],
+                "removed_targets": [],
+                "changes": {},
+                "affected_targets": [],
+                "unchanged_targets": [
+                  "F003",
+                  "F009"
+                ],
+                "basis_changed": false
+              },
+              "recent_questions": []
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "invoice": {
+          "purpose": "寄送客户验收文件",
+          "remarks": null,
+          "revision": 2
+        },
+        "pending": [
+          "F009"
+        ],
+        "waiting": [
+          "F009"
+        ]
+      }
+    },
+    {
+      "name": "新会话接续",
+      "request": "继续甲企业还没办完的任务，告诉我目前需要我做什么。",
+      "reply": "甲企业 2026-09 的用途补全任务（范围：F003、F009）目前状态如下：\n\n- F003：已完成，用途已保存。\n- F009：仍待办，处于等待状态——需要您向经办人核实这张发票的实际业务用途后告诉我，我再据此填写并保存。\n\n依据：甲企业发票用途规则 R002（2.0 版）要求每张发票都必须填写用途。\n\n所以现在需要您做的只有一件事：确认 F009 的实际业务用途。",
+      "tools": [
+        {
+          "name": "inspect_task_frontier",
+          "result": {
+            "status": "ok",
+            "frontier": {
+              "company_id": "C001",
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "month": "2026-09",
+              "scope": "selected",
+              "task_revision": 2,
+              "task_status": "open",
+              "target_invoice_ids": [
+                "F003",
+                "F009"
+              ],
+              "needs_input": [],
+              "ready_to_save": [],
+              "awaiting_confirmation": [],
+              "waiting": [
+                "F009"
+              ],
+              "completed": [
+                "F003"
+              ],
+              "drafts": {},
+              "waiting_reasons": {
+                "F009": "用户需向经办人核实实际业务用途"
+              },
+              "notes": {},
+              "rule": {
+                "rule_id": "R002",
+                "version": "2.0",
+                "name": "甲企业发票用途规则",
+                "execution_summary": "每张发票都必须填写用途。"
+              },
+              "invoice_revisions": {
+                "F003": 2,
+                "F009": 1
+              },
+              "dependencies": {
+                "F003": {
+                  "target_basis": "user_selection",
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "task_revision": 2,
+                  "invoice_revision": 2,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {}
+                },
+                "F009": {
+                  "target_basis": "user_selection",
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "task_revision": 2,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {}
+                }
+              },
+              "next_actions": [
+                {
+                  "action": "wait",
+                  "invoice_ids": [
+                    "F009"
+                  ]
+                }
+              ]
+            },
+            "diff": {
+              "initial": false,
+              "added_targets": [],
+              "removed_targets": [],
+              "changes": {},
+              "affected_targets": [],
+              "unchanged_targets": [
+                "F003",
+                "F009"
+              ],
+              "basis_changed": false
+            },
+            "recent_questions": []
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "pending": [
+          "F009"
+        ],
+        "waiting": [
+          "F009"
+        ]
+      }
+    },
+    {
+      "name": "更正范围并保留草稿",
+      "request": "F009先不做了，这次改为跟进F003和F006。F003已经填好；F006的用途是研发项目管理服务，先放草稿，不要保存。",
+      "reply": "已按您的要求办理，甲企业（比赛模拟）2026-09 任务情况如下：\n\n- 任务范围已更正为 F003 和 F006，F009 已移出本次范围并标记为暂缓，不再追问。\n- F003：用途已填写完成，无需再处理。\n- F006：用途草稿已记录为“研发项目管理服务”，按您要求仅存草稿，未保存到发票。\n\n剩余事项：F006 用途尚未正式保存，等您确认后再写入。",
+      "tools": [
+        {
+          "name": "update_task_memory",
+          "result": {
+            "status": "ok",
+            "event_ids": [
+              "ledger-07b6d820b3844b0ab1b6566ee52e715f",
+              "ledger-22dee68c0d9d42689c45aefbb41bc9cf"
+            ],
+            "memory": {
+              "drafts": {
+                "F006:purpose": {
+                  "field": "purpose",
+                  "invoice_id": "F006",
+                  "save_requested": false,
+                  "value": "研发项目管理服务",
+                  "event_id": "ledger-22dee68c0d9d42689c45aefbb41bc9cf",
+                  "source_turn_id": "turn-cca63cc1e57c44da956afd6040f02849",
+                  "source_session_id": "task-b"
+                }
+              },
+              "deferred": {
+                "F009": "用户表示本次先不做F009"
+              },
+              "deferred_sources": {
+                "F009": "turn-cca63cc1e57c44da956afd6040f02849"
+              },
+              "notes": {},
+              "asked": [],
+              "tasks": {
+                "task-dbfb7ab88fdc42d69d5d93adee0d0a52": {
+                  "closed_at": null,
+                  "company_id": "C001",
+                  "created_at": "2026-11-10T10:03:38.195873+00:00",
+                  "message": "任务进行中。",
+                  "month": "2026-09",
+                  "next_step": "补充待办发票用途",
+                  "pending_invoice_ids": [
+                    "F009"
+                  ],
+                  "revision": 2,
+                  "scope": "selected",
+                  "status": "open",
+                  "target_invoice_ids": [
+                    "F003",
+                    "F009"
+                  ],
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "updated_at": "2026-11-10T10:04:05.323196+00:00",
+                  "user_id": "U001"
+                }
+              },
+              "invoice_events": {
+                "F003": {
+                  "after_revision": 2,
+                  "before_revision": 1,
+                  "fields": [
+                    "purpose"
+                  ],
+                  "invoice_id": "F003",
+                  "operation_id": "op-32be90e6475747ab9256e7437de83992"
+                }
+              },
+              "rule_events": {
+                "R001": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "amount_statistics",
+                  "rule_id": "R001",
+                  "status": "active",
+                  "version": "1.0"
+                },
+                "R002": {
+                  "condition": {
+                    "type": "all"
+                  },
+                  "effective_from": "2026-09-01",
+                  "kind": "invoice_purpose",
+                  "rule_id": "R002",
+                  "status": "active",
+                  "version": "2.0"
+                },
+                "R004": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "bank_requirements",
+                  "rule_id": "R004",
+                  "status": "active",
+                  "version": "1.0"
+                }
+              }
+            },
+            "work": {
+              "status": "ok",
+              "frontier": {
+                "company_id": "C001",
+                "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                "month": "2026-09",
+                "scope": "selected",
+                "task_revision": 2,
+                "task_status": "open",
+                "target_invoice_ids": [
+                  "F003",
+                  "F009"
+                ],
+                "needs_input": [],
+                "ready_to_save": [],
+                "awaiting_confirmation": [],
+                "waiting": [
+                  "F009"
+                ],
+                "completed": [
+                  "F003"
+                ],
+                "drafts": {},
+                "waiting_reasons": {
+                  "F009": "用户表示本次先不做F009"
+                },
+                "notes": {},
+                "rule": {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                "invoice_revisions": {
+                  "F003": 2,
+                  "F009": 1
+                },
+                "dependencies": {
+                  "F003": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 2,
+                    "invoice_revision": 2,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  },
+                  "F009": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 2,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  }
+                },
+                "next_actions": [
+                  {
+                    "action": "wait",
+                    "invoice_ids": [
+                      "F009"
+                    ]
+                  }
+                ]
+              },
+              "diff": {
+                "initial": false,
+                "added_targets": [],
+                "removed_targets": [],
+                "changes": {
+                  "waiting_reasons": {
+                    "F009": "用户表示本次先不做F009"
+                  }
+                },
+                "affected_targets": [
+                  "F009"
+                ],
+                "unchanged_targets": [
+                  "F003"
+                ],
+                "basis_changed": false
+              },
+              "recent_questions": []
+            }
+          }
+        },
+        {
+          "name": "task_correct",
+          "result": {
+            "status": "updated",
+            "task": {
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "user_id": "U001",
+              "company_id": "C001",
+              "month": "2026-09",
+              "scope": "selected",
+              "status": "open",
+              "message": "任务进行中。",
+              "next_step": "补充待办发票用途",
+              "revision": 3,
+              "created_at": "2026-11-10T10:03:38.195873+00:00",
+              "updated_at": "2026-11-10T10:04:12.666356+00:00",
+              "closed_at": null,
+              "target_invoice_ids": [
+                "F003",
+                "F006"
+              ],
+              "pending_invoice_ids": [
+                "F006"
+              ]
+            }
+          }
+        },
+        {
+          "name": "inspect_task_frontier",
+          "result": {
+            "status": "ok",
+            "frontier": {
+              "company_id": "C001",
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "month": "2026-09",
+              "scope": "selected",
+              "task_revision": 3,
+              "task_status": "open",
+              "target_invoice_ids": [
+                "F003",
+                "F006"
+              ],
+              "needs_input": [],
+              "ready_to_save": [],
+              "awaiting_confirmation": [
+                "F006"
+              ],
+              "waiting": [],
+              "completed": [
+                "F003"
+              ],
+              "drafts": {
+                "F006": {
+                  "purpose": {
+                    "field": "purpose",
+                    "invoice_id": "F006",
+                    "save_requested": false,
+                    "value": "研发项目管理服务",
+                    "event_id": "ledger-22dee68c0d9d42689c45aefbb41bc9cf",
+                    "source_turn_id": "turn-cca63cc1e57c44da956afd6040f02849",
+                    "source_session_id": "task-b"
+                  }
+                }
+              },
+              "waiting_reasons": {},
+              "notes": {},
+              "rule": {
+                "rule_id": "R002",
+                "version": "2.0",
+                "name": "甲企业发票用途规则",
+                "execution_summary": "每张发票都必须填写用途。"
+              },
+              "invoice_revisions": {
+                "F003": 2,
+                "F006": 1
+              },
+              "dependencies": {
+                "F003": {
+                  "target_basis": "user_selection",
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "task_revision": 3,
+                  "invoice_revision": 2,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {}
+                },
+                "F006": {
+                  "target_basis": "user_selection",
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "task_revision": 3,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {
+                    "purpose": "ledger-22dee68c0d9d42689c45aefbb41bc9cf"
+                  }
+                }
+              },
+              "next_actions": [
+                {
+                  "action": "confirm",
+                  "invoice_ids": [
+                    "F006"
+                  ]
+                }
+              ]
+            },
+            "diff": {
+              "initial": false,
+              "added_targets": [],
+              "removed_targets": [],
+              "changes": {},
+              "affected_targets": [],
+              "unchanged_targets": [
+                "F003",
+                "F006"
+              ],
+              "basis_changed": false
+            },
+            "recent_questions": []
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "targets": [
+          "F003",
+          "F006"
+        ],
+        "draft": "研发项目管理服务",
+        "saved": null
+      }
+    },
+    {
+      "name": "明确保存草稿",
+      "request": "好，保存F006的用途，F009仍不要动。",
+      "reply": "已保存：甲企业（比赛模拟）2026-09 的 F006 用途已写入为“研发项目管理服务”，备注“按月结算”保持不变。该任务（F003、F006）目标已满足，状态为已完成。\n\nF009 已按你的要求保持不动，并记录为暂缓事项。",
+      "tools": [
+        {
+          "name": "read_invoice",
+          "result": {
+            "status": "ok",
+            "data": {
+              "company_id": "C001",
+              "invoice_id": "F006",
+              "issue_date": "2026-09-20",
+              "seller_name": "云桥信息服务（模拟）",
+              "project_name": "信息技术服务",
+              "amount": "1000.01",
+              "purpose": null,
+              "remarks": "按月结算",
+              "revision": 1
+            }
+          }
+        },
+        {
+          "name": "save_invoice",
+          "result": {
+            "status": "committed",
+            "committed": true,
+            "replayed": false,
+            "before": {
+              "company_id": "C001",
+              "invoice_id": "F006",
+              "issue_date": "2026-09-20",
+              "seller_name": "云桥信息服务（模拟）",
+              "project_name": "信息技术服务",
+              "amount": "1000.01",
+              "purpose": null,
+              "remarks": "按月结算",
+              "revision": 1
+            },
+            "after": {
+              "company_id": "C001",
+              "invoice_id": "F006",
+              "issue_date": "2026-09-20",
+              "seller_name": "云桥信息服务（模拟）",
+              "project_name": "信息技术服务",
+              "amount": "1000.01",
+              "purpose": "研发项目管理服务",
+              "remarks": "按月结算",
+              "revision": 2
+            },
+            "rechecked": true,
+            "task": {
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "user_id": "U001",
+              "company_id": "C001",
+              "month": "2026-09",
+              "scope": "selected",
+              "status": "completed",
+              "message": "任务目标已满足。",
+              "next_step": "无需继续办理",
+              "revision": 4,
+              "created_at": "2026-11-10T10:03:38.195873+00:00",
+              "updated_at": "2026-11-10T10:04:17.513709+00:00",
+              "closed_at": "2026-11-10T10:04:17.513709+00:00",
+              "target_invoice_ids": [
+                "F003",
+                "F006"
+              ],
+              "pending_invoice_ids": []
+            },
+            "task_progress_updated": true,
+            "task_refresh_status": "ok"
+          }
+        },
+        {
+          "name": "update_task_memory",
+          "result": {
+            "status": "ok",
+            "event_ids": [
+              "ledger-71d94553085042428b5398ce46af4ac9"
+            ],
+            "memory": {
+              "drafts": {},
+              "deferred": {},
+              "deferred_sources": {},
+              "notes": {},
+              "asked": [],
+              "tasks": {
+                "task-dbfb7ab88fdc42d69d5d93adee0d0a52": {
+                  "closed_at": "2026-11-10T10:04:17.513709+00:00",
+                  "company_id": "C001",
+                  "created_at": "2026-11-10T10:03:38.195873+00:00",
+                  "message": "任务目标已满足。",
+                  "month": "2026-09",
+                  "next_step": "无需继续办理",
+                  "pending_invoice_ids": [],
+                  "revision": 4,
+                  "scope": "selected",
+                  "status": "completed",
+                  "target_invoice_ids": [
+                    "F003",
+                    "F006"
+                  ],
+                  "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                  "updated_at": "2026-11-10T10:04:17.513709+00:00",
+                  "user_id": "U001"
+                }
+              },
+              "invoice_events": {
+                "F003": {
+                  "after_revision": 2,
+                  "before_revision": 1,
+                  "fields": [
+                    "purpose"
+                  ],
+                  "invoice_id": "F003",
+                  "operation_id": "op-32be90e6475747ab9256e7437de83992"
+                },
+                "F006": {
+                  "after_revision": 2,
+                  "before_revision": 1,
+                  "fields": [
+                    "purpose"
+                  ],
+                  "invoice_id": "F006",
+                  "operation_id": "op-0fb05975c6e14b8b973306d54add7d41"
+                }
+              },
+              "rule_events": {
+                "R001": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "amount_statistics",
+                  "rule_id": "R001",
+                  "status": "active",
+                  "version": "1.0"
+                },
+                "R002": {
+                  "condition": {
+                    "type": "all"
+                  },
+                  "effective_from": "2026-09-01",
+                  "kind": "invoice_purpose",
+                  "rule_id": "R002",
+                  "status": "active",
+                  "version": "2.0"
+                },
+                "R004": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "bank_requirements",
+                  "rule_id": "R004",
+                  "status": "active",
+                  "version": "1.0"
+                }
+              }
+            },
+            "work": {
+              "status": "ok",
+              "frontier": {
+                "company_id": "C001",
+                "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                "month": "2026-09",
+                "scope": "selected",
+                "task_revision": 4,
+                "task_status": "completed",
+                "target_invoice_ids": [
+                  "F003",
+                  "F006"
+                ],
+                "needs_input": [],
+                "ready_to_save": [],
+                "awaiting_confirmation": [],
+                "waiting": [],
+                "completed": [
+                  "F003",
+                  "F006"
+                ],
+                "drafts": {},
+                "waiting_reasons": {},
+                "notes": {},
+                "rule": {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                "invoice_revisions": {
+                  "F003": 2,
+                  "F006": 2
+                },
+                "dependencies": {
+                  "F003": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 4,
+                    "invoice_revision": 2,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  },
+                  "F006": {
+                    "target_basis": "user_selection",
+                    "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+                    "task_revision": 4,
+                    "invoice_revision": 2,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  }
+                },
+                "next_actions": [
+                  {
+                    "action": "finish",
+                    "invoice_ids": [
+                      "F003",
+                      "F006"
+                    ]
+                  }
+                ]
+              },
+              "diff": {
+                "initial": false,
+                "added_targets": [],
+                "removed_targets": [],
+                "changes": {},
+                "affected_targets": [],
+                "unchanged_targets": [
+                  "F003",
+                  "F006"
+                ],
+                "basis_changed": false
+              },
+              "recent_questions": []
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "invoice": {
+          "purpose": "研发项目管理服务",
+          "remarks": "按月结算",
+          "revision": 2
+        }
+      }
+    },
+    {
+      "name": "撤销并接续",
+      "request": "撤销刚刚F006用途的保存。",
+      "reply": "已撤销甲企业（比赛模拟）2026-09 发票 F006 的用途保存：用途已恢复为空（原为“研发项目管理服务”），备注“按月结算”未变动。\n\n该发票重新回到待补用途状态，任务 该任务 仍为进行中，待办发票为 F006。",
+      "tools": [
+        {
+          "name": "read_invoice",
+          "result": {
+            "status": "ok",
+            "data": {
+              "company_id": "C001",
+              "invoice_id": "F006",
+              "issue_date": "2026-09-20",
+              "seller_name": "云桥信息服务（模拟）",
+              "project_name": "信息技术服务",
+              "amount": "1000.01",
+              "purpose": "研发项目管理服务",
+              "remarks": "按月结算",
+              "revision": 2
+            }
+          }
+        },
+        {
+          "name": "undo_saved_invoice",
+          "result": {
+            "status": "committed",
+            "committed": true,
+            "replayed": false,
+            "before": {
+              "company_id": "C001",
+              "invoice_id": "F006",
+              "issue_date": "2026-09-20",
+              "seller_name": "云桥信息服务（模拟）",
+              "project_name": "信息技术服务",
+              "amount": "1000.01",
+              "purpose": "研发项目管理服务",
+              "remarks": "按月结算",
+              "revision": 2
+            },
+            "after": {
+              "company_id": "C001",
+              "invoice_id": "F006",
+              "issue_date": "2026-09-20",
+              "seller_name": "云桥信息服务（模拟）",
+              "project_name": "信息技术服务",
+              "amount": "1000.01",
+              "purpose": null,
+              "remarks": "按月结算",
+              "revision": 3
+            },
+            "rechecked": true,
+            "task_progress_updated": false,
+            "task_refresh_status": "no_active_task",
+            "task_reopen_status": "reopened",
+            "task": {
+              "task_id": "task-dbfb7ab88fdc42d69d5d93adee0d0a52",
+              "user_id": "U001",
+              "company_id": "C001",
+              "month": "2026-09",
+              "scope": "selected",
+              "status": "open",
+              "message": "任务进行中。",
+              "next_step": "补充待办发票用途",
+              "revision": 5,
+              "created_at": "2026-11-10T10:03:38.195873+00:00",
+              "updated_at": "2026-11-10T10:04:22.558191+00:00",
+              "closed_at": null,
+              "target_invoice_ids": [
+                "F003",
+                "F006"
+              ],
+              "pending_invoice_ids": [
+                "F006"
+              ]
+            },
+            "undone_fields": [
+              "purpose"
+            ],
+            "source_operation_id": "op-0fb05975c6e14b8b973306d54add7d41"
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "invoice": {
+          "purpose": null,
+          "remarks": "按月结算",
+          "revision": 3
+        },
+        "pending": [
+          "F006"
+        ]
+      }
+    },
+    {
+      "name": "同轮切企业查询",
+      "request": "把当前办理企业切换为乙企业，并查询它2026年9月的发票总额。",
+      "reply": "已切换为乙企业（比赛模拟），当前办理企业为乙企业。\n\n乙企业 2026年9月发票总额为 12,667.24 元，共 10 张发票（依据《金额统计说明》1.0 版，发票总额为当月全部发票价税合计之和，与用途是否填写无关）。",
+      "tools": [
+        {
+          "name": "switch_company",
+          "result": {
+            "status": "ok",
+            "current_company_id": "C002",
+            "summary": "当前办理企业已切换。"
+          }
+        },
+        {
+          "name": "query_finance",
+          "result": {
+            "status": "ok",
+            "data": {
+              "invoice": {
+                "company_id": "C002",
+                "month": "2026-09",
+                "invoice_count": 10,
+                "invoice_total": "12667.24",
+                "no_records": false,
+                "invoices": [
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F001",
+                    "issue_date": "2026-09-01",
+                    "seller_name": "青禾办公用品（模拟）",
+                    "project_name": "办公耗材",
+                    "amount": "600.00",
+                    "purpose": null,
+                    "remarks": "部门采购",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F002",
+                    "issue_date": "2026-09-08",
+                    "seller_name": "星河印刷（模拟）",
+                    "project_name": "宣传资料印刷",
+                    "amount": "1000.00",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F004",
+                    "issue_date": "2026-09-10",
+                    "seller_name": "岭南商旅（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "999.99",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F005",
+                    "issue_date": "2026-09-12",
+                    "seller_name": "云桥信息服务（模拟）",
+                    "project_name": "运维服务",
+                    "amount": "1000.01",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F003",
+                    "issue_date": "2026-09-16",
+                    "seller_name": "澄宇设备（模拟）",
+                    "project_name": "展示用品",
+                    "amount": "1500.00",
+                    "purpose": "购买展示用品",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F006",
+                    "issue_date": "2026-09-20",
+                    "seller_name": "栖山酒店（模拟）",
+                    "project_name": "住宿服务",
+                    "amount": "1280.50",
+                    "purpose": null,
+                    "remarks": "两日住宿",
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F007",
+                    "issue_date": "2026-09-24",
+                    "seller_name": "锦程会务（模拟）",
+                    "project_name": "会议场地服务",
+                    "amount": "3200.00",
+                    "purpose": "客户交流会议场地",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F008",
+                    "issue_date": "2026-09-28",
+                    "seller_name": "晓风快递（模拟）",
+                    "project_name": "快递服务",
+                    "amount": "600.00",
+                    "purpose": "会议资料邮寄",
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F009",
+                    "issue_date": "2026-09-29",
+                    "seller_name": "书林图文（模拟）",
+                    "project_name": "打印、装订服务",
+                    "amount": "486.75",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  {
+                    "company_id": "C002",
+                    "invoice_id": "F010",
+                    "issue_date": "2026-09-30",
+                    "seller_name": "衡川设备维护（模拟）",
+                    "project_name": "设备维护服务",
+                    "amount": "1999.99",
+                    "purpose": "设备例行维护",
+                    "remarks": "月底维护",
+                    "revision": 1
+                  }
+                ],
+                "rules": [
+                  {
+                    "rule_id": "R001",
+                    "version": "1.0",
+                    "name": "金额统计说明",
+                    "kind": "amount_statistics",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "bank": {
+                "company_id": "C002",
+                "month": "2026-09",
+                "record_count": 12,
+                "income": "13700.75",
+                "expense": "8087.24",
+                "no_records": false,
+                "rules": [
+                  {
+                    "rule_id": "R004",
+                    "version": "1.0",
+                    "name": "银行资料说明",
+                    "kind": "bank_requirements",
+                    "company_id": null,
+                    "effective_from": "2026-01-01",
+                    "status": "active",
+                    "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                    "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                    "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                    "condition": {
+                      "type": "not_applicable"
+                    },
+                    "execution_status": "not_applicable",
+                    "execution_summary": "该规则类型不执行发票用途条件。"
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "rule_id": "R001",
+                  "version": "1.0",
+                  "name": "金额统计说明",
+                  "kind": "amount_statistics",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R001 金额统计说明 1.0版\n1. 发票金额表示价税合计。发票总额为所选企业、月份的全部发票金额之和；是否填写用途不影响金额查询。\n2. 银行收入和支出按收支方向分别相加，不把收入计入支出，不用收入减支出来代替支出总额。\n3. 金额单位为元，保留两位小数。程序使用十进制金额或整数分计算，不要求拆分税额、计算税率或生成会计分录。\n4. 月份按发票日期或银行交易日期确定。用户没说清月份且前文没有明确月份时，应先追问，不能默认替换为当前月份。\n5. 发票总额和银行支出可以不同。本题不要求逐条匹配，不能因金额不同就判断错误、欠款或已经付款。\n6. 成功查询但没有记录时，合计为 0.00 元，并说明没有记录。查询失败或无权限不等于没有记录，不能回答为零。\n金额与保存状态以学生系统当前保存的数据为准。规则文档和 Excel 中的核对金额用于解释和检查，不能代替实际查询。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                },
+                {
+                  "rule_id": "R003",
+                  "version": "1.0",
+                  "name": "乙企业发票用途规则",
+                  "kind": "invoice_purpose",
+                  "company_id": "C002",
+                  "effective_from": "2026-08-01",
+                  "status": "active",
+                  "content": "R003 乙企业发票用途规则 1.0版\n单张发票金额大于或等于 1000.00 元时必须填写用途，等于 1000 元也在范围内；低于此金额可以不填。空白或只有空格视为未填写，备注不能代替用途。\n检查应使用当前金额和用途。不能套用甲企业“每张必填”的规则，也不能把允许不填的发票列为不符合要求。用户可以主动补充低于门槛发票的用途，但仍须具备修改权限，并明确要修改的企业、发票和内容。\n回答可注明“依据《乙企业发票用途规则》1.0 版”。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "amount_cents": 100000,
+                    "type": "amount_gte"
+                  },
+                  "execution_status": "supported",
+                  "execution_summary": "发票金额大于或等于 1000.00 元时必须填写用途。"
+                },
+                {
+                  "rule_id": "R004",
+                  "version": "1.0",
+                  "name": "银行资料说明",
+                  "kind": "bank_requirements",
+                  "company_id": null,
+                  "effective_from": "2026-01-01",
+                  "status": "active",
+                  "content": "R004 银行资料说明 1.0版\n• 企业编号和银行记录编号共同确定一条记录，相同编号可以出现在不同企业中。\n• 交易日期用于确定查询年份和月份。\n• 收支方向分为收入和支出，金额均为正数；支出不再另外减一次负号。\n• 对方名称和备注仅说明该条记录，不能据此推断某张发票已经付款。\n银行资料全部只读，不允许新增、删除或修改。查询必须检查用户权限和企业范围。银行记录与发票没有逐条对应关系。需要汇总时，按 R001 1.0 版分别统计。",
+                  "source_path": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\app\\data\\03_业务规则.docx.txt",
+                  "source_sha256": "3d57dae7031ce5287982bfa14a8d8ccc26899ddc8a3671bf53c46ff13c3c9672",
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "execution_status": "not_applicable",
+                  "execution_summary": "该规则类型不执行发票用途条件。"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "company": "C002",
+        "original_pending": [
+          "F006"
+        ]
+      }
+    },
+    {
+      "name": "规则变化预览",
+      "request": "如果乙企业9月发票用途门槛改为500元，先预览影响，不修改规则，告诉我新增哪些未填用途的票。",
+      "reply": "这是预览结果，规则尚未修改。\n\n乙企业（比赛模拟）2026-09 发票用途门槛若从 1000.00 元改为 500.00 元：\n\n- 新增需要填写用途、但目前尚未填写的发票：F001（600.00 元）、F004（999.99 元）\n- 原本就缺用途、改后仍缺：F002、F005、F006\n- 改后需要填写但已填写用途：F008（600.00 元）\n- 改后不再需要填写用途：无\n- 受影响任务：无\n\n改后共 5 张发票需要补用途：F001、F002、F004、F005、F006。",
+      "tools": [
+        {
+          "name": "preview_rule_impact",
+          "result": {
+            "status": "ok",
+            "company_id": "C002",
+            "month": "2026-09",
+            "preview_only": true,
+            "current_rule": {
+              "rule_id": "R003",
+              "version": "1.0",
+              "name": "乙企业发票用途规则",
+              "condition": {
+                "amount_cents": 100000,
+                "type": "amount_gte"
+              },
+              "execution_summary": "发票金额大于或等于 1000.00 元时必须填写用途。"
+            },
+            "proposed_condition": {
+              "type": "amount_gte",
+              "amount_cents": 50000
+            },
+            "proposed_summary": "发票金额大于或等于 500.00 元时必须填写用途。",
+            "before_missing": [
+              "F002",
+              "F005",
+              "F006"
+            ],
+            "after_missing": [
+              "F001",
+              "F002",
+              "F004",
+              "F005",
+              "F006"
+            ],
+            "newly_required_missing": [
+              {
+                "invoice_id": "F001",
+                "amount": "600.00"
+              },
+              {
+                "invoice_id": "F004",
+                "amount": "999.99"
+              }
+            ],
+            "newly_required_filled": [
+              {
+                "invoice_id": "F008",
+                "amount": "600.00"
+              }
+            ],
+            "no_longer_required": [],
+            "task_impacts": [],
+            "summary": "这是规则变化影响预览，尚未更改规则、发票或任务。"
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "added": [
+          "F001",
+          "F004"
+        ],
+        "rule_versions": 1
+      }
+    },
+    {
+      "name": "只读用户权限",
+      "request": "切到乙企业查询2026年9月发票总额。",
+      "reply": "无法切换到乙企业：当前用户 U002 没有访问乙企业（C002）的权限，因此也无法查询乙企业 2026 年 9 月的发票总额。\n\n当前办理企业仍是甲企业（C001）。如需查询甲企业 2026 年 9 月的发票总额，我可以直接办理。",
+      "tools": [
+        {
+          "name": "switch_company",
+          "result": {
+            "status": "permission_denied",
+            "summary": "用户 U002 无权访问企业 C002。"
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "company": "C001"
+      }
+    }
+  ],
+  "status": "passed",
+  "model_calls": 45,
+  "estimated_increment_cny": 0.39483,
+  "completed_at": "2026-11-10T18:04:32.819064+08:00"
+}

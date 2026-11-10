@@ -1,0 +1,516 @@
+{
+  "created_at": "2026-11-10T18:02:49.154895+08:00",
+  "run_dir": "D:\\AI黑客松\\TaxAgentHarness\\artifacts\\taskledger_upgrade_20261110\\experiments\\live-20261110-180249-151543",
+  "budget_cny": 10,
+  "initial_ledger_calls": 927,
+  "steps": [
+    {
+      "name": "更正一张草稿",
+      "request": "刚才F003说错了，实际是寄送客户验收文件；另两张不变，仍先不要保存。",
+      "reply": "已按你的更正更新草稿，均未保存：\n\n- F003 用途：寄送客户验收文件（已更正）\n- F002 用途：购买培训资料（不变）\n- F006 用途：项目管理服务（不变）\n\n以上三张仍为草稿状态，未写入发票。甲企业 2026-09 用途补全任务中，F004、F009 还缺用途信息，需要你提供实际业务目的后才能继续。",
+      "tools": [
+        {
+          "name": "update_task_memory",
+          "result": {
+            "status": "ok",
+            "event_ids": [
+              "ledger-359bfe346fce415ca677f33707ca76ff"
+            ],
+            "memory": {
+              "drafts": {
+                "F002:purpose": {
+                  "field": "purpose",
+                  "invoice_id": "F002",
+                  "save_requested": false,
+                  "value": "购买培训资料",
+                  "event_id": "ledger-791b2e0ccc274dccb34a6e50298d189b",
+                  "source_turn_id": "turn-41ae97f098ca4a6b9530cc3c559a493f",
+                  "source_session_id": "journey-a"
+                },
+                "F003:purpose": {
+                  "field": "purpose",
+                  "invoice_id": "F003",
+                  "save_requested": false,
+                  "value": "寄送客户验收文件",
+                  "event_id": "ledger-359bfe346fce415ca677f33707ca76ff",
+                  "source_turn_id": "turn-0ecc69e3c89f44d88c4449b6f1e6fb59",
+                  "source_session_id": "journey-a"
+                },
+                "F006:purpose": {
+                  "field": "purpose",
+                  "invoice_id": "F006",
+                  "save_requested": false,
+                  "value": "项目管理服务",
+                  "event_id": "ledger-97d057aac52c4dd4bdbb96613de2ae26",
+                  "source_turn_id": "turn-41ae97f098ca4a6b9530cc3c559a493f",
+                  "source_session_id": "journey-a"
+                }
+              },
+              "deferred": {},
+              "deferred_sources": {},
+              "notes": {},
+              "asked": [],
+              "tasks": {
+                "task-0bef8191d25a4edfb94bac54d367fdb4": {
+                  "closed_at": null,
+                  "company_id": "C001",
+                  "created_at": "2026-11-10T10:00:21.223573+00:00",
+                  "message": "任务进行中。依据 甲企业发票用途规则 2.0。",
+                  "month": "2026-09",
+                  "next_step": "补充待办发票用途",
+                  "pending_invoice_ids": [
+                    "F002",
+                    "F004",
+                    "F003",
+                    "F006",
+                    "F009"
+                  ],
+                  "revision": 1,
+                  "scope": "all_missing",
+                  "status": "open",
+                  "target_invoice_ids": [
+                    "F002",
+                    "F004",
+                    "F003",
+                    "F006",
+                    "F009"
+                  ],
+                  "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                  "updated_at": "2026-11-10T10:00:21.223573+00:00",
+                  "user_id": "U001"
+                }
+              },
+              "invoice_events": {},
+              "rule_events": {
+                "R001": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "amount_statistics",
+                  "rule_id": "R001",
+                  "status": "active",
+                  "version": "1.0"
+                },
+                "R002": {
+                  "condition": {
+                    "type": "all"
+                  },
+                  "effective_from": "2026-09-01",
+                  "kind": "invoice_purpose",
+                  "rule_id": "R002",
+                  "status": "active",
+                  "version": "2.0"
+                },
+                "R004": {
+                  "condition": {
+                    "type": "not_applicable"
+                  },
+                  "effective_from": "2026-01-01",
+                  "kind": "bank_requirements",
+                  "rule_id": "R004",
+                  "status": "active",
+                  "version": "1.0"
+                }
+              }
+            },
+            "work": {
+              "status": "ok",
+              "frontier": {
+                "company_id": "C001",
+                "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                "month": "2026-09",
+                "scope": "all_missing",
+                "task_revision": 1,
+                "task_status": "open",
+                "target_invoice_ids": [
+                  "F002",
+                  "F004",
+                  "F003",
+                  "F006",
+                  "F009"
+                ],
+                "needs_input": [
+                  "F004",
+                  "F009"
+                ],
+                "ready_to_save": [],
+                "awaiting_confirmation": [
+                  "F002",
+                  "F003",
+                  "F006"
+                ],
+                "waiting": [],
+                "completed": [],
+                "drafts": {
+                  "F002": {
+                    "purpose": {
+                      "field": "purpose",
+                      "invoice_id": "F002",
+                      "save_requested": false,
+                      "value": "购买培训资料",
+                      "event_id": "ledger-791b2e0ccc274dccb34a6e50298d189b",
+                      "source_turn_id": "turn-41ae97f098ca4a6b9530cc3c559a493f",
+                      "source_session_id": "journey-a"
+                    }
+                  },
+                  "F003": {
+                    "purpose": {
+                      "field": "purpose",
+                      "invoice_id": "F003",
+                      "save_requested": false,
+                      "value": "寄送客户验收文件",
+                      "event_id": "ledger-359bfe346fce415ca677f33707ca76ff",
+                      "source_turn_id": "turn-0ecc69e3c89f44d88c4449b6f1e6fb59",
+                      "source_session_id": "journey-a"
+                    }
+                  },
+                  "F006": {
+                    "purpose": {
+                      "field": "purpose",
+                      "invoice_id": "F006",
+                      "save_requested": false,
+                      "value": "项目管理服务",
+                      "event_id": "ledger-97d057aac52c4dd4bdbb96613de2ae26",
+                      "source_turn_id": "turn-41ae97f098ca4a6b9530cc3c559a493f",
+                      "source_session_id": "journey-a"
+                    }
+                  }
+                },
+                "waiting_reasons": {},
+                "notes": {},
+                "rule": {
+                  "rule_id": "R002",
+                  "version": "2.0",
+                  "name": "甲企业发票用途规则",
+                  "execution_summary": "每张发票都必须填写用途。"
+                },
+                "invoice_revisions": {
+                  "F002": 1,
+                  "F004": 1,
+                  "F003": 1,
+                  "F006": 1,
+                  "F009": 1
+                },
+                "dependencies": {
+                  "F002": {
+                    "target_basis": "current_rule_and_invoice",
+                    "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {
+                      "purpose": "ledger-791b2e0ccc274dccb34a6e50298d189b"
+                    }
+                  },
+                  "F004": {
+                    "target_basis": "current_rule_and_invoice",
+                    "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  },
+                  "F003": {
+                    "target_basis": "current_rule_and_invoice",
+                    "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {
+                      "purpose": "ledger-359bfe346fce415ca677f33707ca76ff"
+                    }
+                  },
+                  "F006": {
+                    "target_basis": "current_rule_and_invoice",
+                    "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {
+                      "purpose": "ledger-97d057aac52c4dd4bdbb96613de2ae26"
+                    }
+                  },
+                  "F009": {
+                    "target_basis": "current_rule_and_invoice",
+                    "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                    "task_revision": 1,
+                    "invoice_revision": 1,
+                    "rule": {
+                      "rule_id": "R002",
+                      "version": "2.0",
+                      "name": "甲企业发票用途规则",
+                      "execution_summary": "每张发票都必须填写用途。"
+                    },
+                    "draft_event_ids": {}
+                  }
+                },
+                "next_actions": [
+                  {
+                    "action": "confirm",
+                    "invoice_ids": [
+                      "F002",
+                      "F003",
+                      "F006"
+                    ]
+                  },
+                  {
+                    "action": "ask",
+                    "invoice_ids": [
+                      "F004",
+                      "F009"
+                    ]
+                  }
+                ]
+              },
+              "diff": {
+                "initial": false,
+                "added_targets": [],
+                "removed_targets": [],
+                "changes": {
+                  "drafts": {
+                    "updated": [
+                      "F003"
+                    ]
+                  }
+                },
+                "affected_targets": [
+                  "F003"
+                ],
+                "unchanged_targets": [
+                  "F002",
+                  "F004",
+                  "F006",
+                  "F009"
+                ],
+                "basis_changed": false
+              },
+              "recent_questions": []
+            }
+          }
+        },
+        {
+          "name": "inspect_task_frontier",
+          "result": {
+            "status": "ok",
+            "frontier": {
+              "company_id": "C001",
+              "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+              "month": "2026-09",
+              "scope": "all_missing",
+              "task_revision": 1,
+              "task_status": "open",
+              "target_invoice_ids": [
+                "F002",
+                "F004",
+                "F003",
+                "F006",
+                "F009"
+              ],
+              "needs_input": [
+                "F004",
+                "F009"
+              ],
+              "ready_to_save": [],
+              "awaiting_confirmation": [
+                "F002",
+                "F003",
+                "F006"
+              ],
+              "waiting": [],
+              "completed": [],
+              "drafts": {
+                "F002": {
+                  "purpose": {
+                    "field": "purpose",
+                    "invoice_id": "F002",
+                    "save_requested": false,
+                    "value": "购买培训资料",
+                    "event_id": "ledger-791b2e0ccc274dccb34a6e50298d189b",
+                    "source_turn_id": "turn-41ae97f098ca4a6b9530cc3c559a493f",
+                    "source_session_id": "journey-a"
+                  }
+                },
+                "F003": {
+                  "purpose": {
+                    "field": "purpose",
+                    "invoice_id": "F003",
+                    "save_requested": false,
+                    "value": "寄送客户验收文件",
+                    "event_id": "ledger-359bfe346fce415ca677f33707ca76ff",
+                    "source_turn_id": "turn-0ecc69e3c89f44d88c4449b6f1e6fb59",
+                    "source_session_id": "journey-a"
+                  }
+                },
+                "F006": {
+                  "purpose": {
+                    "field": "purpose",
+                    "invoice_id": "F006",
+                    "save_requested": false,
+                    "value": "项目管理服务",
+                    "event_id": "ledger-97d057aac52c4dd4bdbb96613de2ae26",
+                    "source_turn_id": "turn-41ae97f098ca4a6b9530cc3c559a493f",
+                    "source_session_id": "journey-a"
+                  }
+                }
+              },
+              "waiting_reasons": {},
+              "notes": {},
+              "rule": {
+                "rule_id": "R002",
+                "version": "2.0",
+                "name": "甲企业发票用途规则",
+                "execution_summary": "每张发票都必须填写用途。"
+              },
+              "invoice_revisions": {
+                "F002": 1,
+                "F004": 1,
+                "F003": 1,
+                "F006": 1,
+                "F009": 1
+              },
+              "dependencies": {
+                "F002": {
+                  "target_basis": "current_rule_and_invoice",
+                  "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                  "task_revision": 1,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {
+                    "purpose": "ledger-791b2e0ccc274dccb34a6e50298d189b"
+                  }
+                },
+                "F004": {
+                  "target_basis": "current_rule_and_invoice",
+                  "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                  "task_revision": 1,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {}
+                },
+                "F003": {
+                  "target_basis": "current_rule_and_invoice",
+                  "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                  "task_revision": 1,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {
+                    "purpose": "ledger-359bfe346fce415ca677f33707ca76ff"
+                  }
+                },
+                "F006": {
+                  "target_basis": "current_rule_and_invoice",
+                  "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                  "task_revision": 1,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {
+                    "purpose": "ledger-97d057aac52c4dd4bdbb96613de2ae26"
+                  }
+                },
+                "F009": {
+                  "target_basis": "current_rule_and_invoice",
+                  "task_id": "task-0bef8191d25a4edfb94bac54d367fdb4",
+                  "task_revision": 1,
+                  "invoice_revision": 1,
+                  "rule": {
+                    "rule_id": "R002",
+                    "version": "2.0",
+                    "name": "甲企业发票用途规则",
+                    "execution_summary": "每张发票都必须填写用途。"
+                  },
+                  "draft_event_ids": {}
+                }
+              },
+              "next_actions": [
+                {
+                  "action": "confirm",
+                  "invoice_ids": [
+                    "F002",
+                    "F003",
+                    "F006"
+                  ]
+                },
+                {
+                  "action": "ask",
+                  "invoice_ids": [
+                    "F004",
+                    "F009"
+                  ]
+                }
+              ]
+            },
+            "diff": {
+              "initial": false,
+              "added_targets": [],
+              "removed_targets": [],
+              "changes": {},
+              "affected_targets": [],
+              "unchanged_targets": [
+                "F002",
+                "F003",
+                "F004",
+                "F006",
+                "F009"
+              ],
+              "basis_changed": false
+            },
+            "recent_questions": []
+          }
+        }
+      ],
+      "passed": true,
+      "details": {
+        "drafts": {
+          "F002:purpose": "购买培训资料",
+          "F003:purpose": "寄送客户验收文件",
+          "F006:purpose": "项目管理服务"
+        }
+      }
+    }
+  ],
+  "status": "passed",
+  "model_calls": 2,
+  "estimated_increment_cny": 0.021481,
+  "completed_at": "2026-11-10T18:02:53.788758+08:00"
+}

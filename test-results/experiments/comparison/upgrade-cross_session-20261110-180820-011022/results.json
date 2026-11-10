@@ -1,0 +1,97 @@
+{
+  "version": "upgrade",
+  "case": "cross_session",
+  "created_at": "2026-11-10T18:08:20.213868+08:00",
+  "steps": [
+    {
+      "message": "为甲企业2026年9月建立只跟进F002和F003的用途任务。F002的实际用途是购买培训资料，先记为草稿，暂时不要保存。",
+      "reply": "已为甲企业建立 2026年9月 的用途任务，范围只包含 F002 和 F003。\n\n- F002：用途草稿已记为“购买培训资料”，尚未保存，等你确认后再写入。\n- F003：还没有用途信息，需要你提供实际业务用途。\n\n依据：甲企业 2026年9月 适用发票用途规则 R002（2.0），要求每张发票都必须填写用途。",
+      "status": "ok",
+      "elapsed_seconds": 6.51,
+      "tools": [
+        "task_create",
+        "update_task_memory"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "继续甲企业上次9月的任务，告诉我F002草稿的用途，先别改数据。",
+      "reply": "甲企业 2026年9月任务（范围：F002、F003）中，F002 的用途草稿是“购买培训资料”，目前尚未保存，等待你确认。本次只做了查询，没有修改任何数据。\n\n另外，F003 的用途还没有提供。",
+      "status": "ok",
+      "elapsed_seconds": 2.73,
+      "tools": [
+        "inspect_task_frontier"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "把刚才展示的F002用途草稿保存。",
+      "reply": "已保存：甲企业（比赛模拟）2026-09 的发票 F002（书林图文，复印纸、打印服务，800.00 元）用途已写入“购买培训资料”。\n\n该任务中 F003 的用途仍待补充。",
+      "status": "ok",
+      "elapsed_seconds": 3.55,
+      "tools": [
+        "read_invoice",
+        "save_invoice"
+      ],
+      "f002": [
+        "购买培训资料",
+        null,
+        2
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    }
+  ],
+  "checks": {
+    "first_no_write": true,
+    "second_no_write": true,
+    "resumed_draft_visible": true,
+    "correct_final_value": true,
+    "runtime_ok": true
+  },
+  "passed": true,
+  "model_calls": 8,
+  "input_tokens": 63322,
+  "output_tokens": 613,
+  "estimated_increment_cny": 0.065774,
+  "unknown_calls": 0,
+  "shared_ledger_new_calls": 8,
+  "shared_ledger_increment_cny": 0.065774,
+  "completed_at": "2026-11-10T18:08:33.020509+08:00"
+}

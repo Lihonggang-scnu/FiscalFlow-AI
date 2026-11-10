@@ -1,0 +1,36 @@
+{
+  "scenario": "receipt_lost",
+  "steps": [
+    {
+      "name": "提交后中断",
+      "status": "error",
+      "invoice": {
+        "purpose": "购买培训资料",
+        "remarks": null,
+        "revision": 2
+      },
+      "commits": 1
+    },
+    {
+      "name": "重启后核对",
+      "status": "ok",
+      "reply": "核对结果（甲企业，2026-09，发票 F002）：\n\n- 那次保存请求是“把 F002 用途保存为购买培训资料”，当时回执中断，无法确认是否写入。\n- 现在重新读取 F002：用途已为“购买培训资料”，备注为空，revision 为 2，说明那次保存实际已生效。\n- 本次仅核对，未对发票做任何修改。\n\n依据：当前发票数据来自本轮重新读取；中断记录来自当时的对话原话，仅作对照。",
+      "invoice": {
+        "purpose": "购买培训资料",
+        "remarks": null,
+        "revision": 2
+      },
+      "commits": 1
+    }
+  ],
+  "checks": {
+    "interruption_reproduced": true,
+    "recovery_completed": true,
+    "current_value_correct": true,
+    "current_value_in_reply": true,
+    "no_duplicate_write": true
+  },
+  "passed": true,
+  "model_calls": 5,
+  "estimated_increment_cny": 0.037825
+}

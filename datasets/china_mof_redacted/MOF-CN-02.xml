@@ -1,0 +1,61 @@
+<xbrli:xbrl xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.xbrl.org/2003/linkbase http://www.xbrl.org/2003/xbrl-linkbase-2003-12-31.xsd" xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:einv="http://xbrl.mof.gov.cn/taxonomy/2023-12-31/einv" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xbrli="http://www.xbrl.org/2003/instance">
+  <link:schemaRef xlink:type="simple" xlink:href="einv_entry_point_2023-12-31.xsd" />
+  <xbrli:context id="c1">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://xbrl.mof.gov.cn">TEST-TAX-ID</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2023-12-31</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="u1">
+    <xbrli:measure>iso4217:CNY</xbrli:measure>
+  </xbrli:unit>
+  <einv:InvoiceNumber contextRef="c1">TEST-DOCUMENT-REF</einv:InvoiceNumber>
+  <einv:SellerName contextRef="c1">样例主体-已脱敏</einv:SellerName>
+  <einv:SellerIdNum contextRef="c1">TEST-TAX-ID</einv:SellerIdNum>
+  <einv:TotalAmWithoutTax decimals="2" contextRef="c1" unitRef="u1">9000.00</einv:TotalAmWithoutTax>
+  <einv:RequestTime contextRef="c1">2023-11-13 20:05:10</einv:RequestTime>
+  <einv:TotalTaxAm decimals="2" contextRef="c1" unitRef="u1">1170.00</einv:TotalTaxAm>
+  <einv:TotalTax-includedAmount decimals="2" contextRef="c1" unitRef="u1">10170.00</einv:TotalTax-includedAmount>
+  <einv:ContractNumber contextRef="c1">TEST-DOCUMENT-REF</einv:ContractNumber>
+  <einv:MatchingStateBetweenBusinessDocumentsAndVatEinvoice contextRef="c1">已匹配</einv:MatchingStateBetweenBusinessDocumentsAndVatEinvoice>
+  <einv:WhetherEinvoiceIsRedEinvoice contextRef="c1">false</einv:WhetherEinvoiceIsRedEinvoice>
+  <einv:WhetherEinvoiceHasBeenBooked contextRef="c1">true</einv:WhetherEinvoiceHasBeenBooked>
+  <einv:WhetherEinvoiceHasBeenChecked contextRef="c1">true</einv:WhetherEinvoiceHasBeenChecked>
+  <einv:WhetherEinvoiceHasBeenPaid contextRef="c1">true</einv:WhetherEinvoiceHasBeenPaid>
+  <einv:NumberOfBankElectronicReceipt contextRef="c1">TEST-DOCUMENT-REF</einv:NumberOfBankElectronicReceipt>
+  <einv:UnifiedSocialCreditCodeOfAccountingEntity contextRef="c1">TEST-TAX-ID</einv:UnifiedSocialCreditCodeOfAccountingEntity>
+  <einv:NameOfAccountingEntity contextRef="c1">样例主体-已脱敏</einv:NameOfAccountingEntity>
+  <einv:InformationOfAccountingDocumentsTuple>
+    <einv:NumberOfAccountingDocuments contextRef="c1">R0009</einv:NumberOfAccountingDocuments>
+    <einv:PostingDate contextRef="c1">2023-12-31</einv:PostingDate>
+    <einv:AccountingPeriod contextRef="c1">2023-12</einv:AccountingPeriod>
+    <einv:InformationOfDebitAndCreditEntryTuple>
+      <einv:DebitOrCredit contextRef="c1">借方</einv:DebitOrCredit>
+      <einv:NameOfGeneralLedgerSubject contextRef="c1">原材料</einv:NameOfGeneralLedgerSubject>
+      <einv:RecordedAmount decimals="2" contextRef="c1" unitRef="u1">9000.00</einv:RecordedAmount>
+    </einv:InformationOfDebitAndCreditEntryTuple>
+    <einv:InformationOfDebitAndCreditEntryTuple>
+      <einv:DebitOrCredit contextRef="c1">借方</einv:DebitOrCredit>
+      <einv:NameOfGeneralLedgerSubject contextRef="c1">应交税费</einv:NameOfGeneralLedgerSubject>
+      <einv:NameOfSubsidiaryLedgerSubject contextRef="c1">应交增值税-进项税额</einv:NameOfSubsidiaryLedgerSubject>
+      <einv:RecordedAmount decimals="2" contextRef="c1" unitRef="u1">1170.00</einv:RecordedAmount>
+    </einv:InformationOfDebitAndCreditEntryTuple>
+    <einv:InformationOfDebitAndCreditEntryTuple>
+      <einv:DebitOrCredit contextRef="c1">贷方</einv:DebitOrCredit>
+      <einv:NameOfGeneralLedgerSubject contextRef="c1">银行存款</einv:NameOfGeneralLedgerSubject>
+      <einv:RecordedAmount decimals="2" contextRef="c1" unitRef="u1">10170.00</einv:RecordedAmount>
+    </einv:InformationOfDebitAndCreditEntryTuple>
+  </einv:InformationOfAccountingDocumentsTuple>
+  <einv:WhetherPreTaxDeductionOfIncomeTaxHasBeenCompleted contextRef="c1">false</einv:WhetherPreTaxDeductionOfIncomeTaxHasBeenCompleted>
+  <einv:BeginningOfExpenditurePeriodUnderAccrualBasis contextRef="c1">2023-12</einv:BeginningOfExpenditurePeriodUnderAccrualBasis>
+  <einv:WhetherEinvoiceUsageHasBeenConfirmed contextRef="c1">true</einv:WhetherEinvoiceUsageHasBeenConfirmed>
+  <einv:UsageConfirmation contextRef="c1">抵扣税款</einv:UsageConfirmation>
+  <einv:WhetherInputVatHasBeenTransferredOut contextRef="c1">false</einv:WhetherInputVatHasBeenTransferredOut>
+  <einv:AmountOfTransferredOutInputVat decimals="2" contextRef="c1" unitRef="u1">1170.00</einv:AmountOfTransferredOutInputVat>
+  <einv:PeriodOfUsageConfirmation contextRef="c1">2023-12</einv:PeriodOfUsageConfirmation>
+  <einv:BeginningOfPreTaxDeductionYearOfIncomeTax contextRef="c1">2023</einv:BeginningOfPreTaxDeductionYearOfIncomeTax>
+  <einv:EndOfPreTaxDeductionYearOfIncomeTax contextRef="c1">2023</einv:EndOfPreTaxDeductionYearOfIncomeTax>
+  <einv:EndOfExpenditurePeriodUnderAccrualBasis contextRef="c1">2023-12</einv:EndOfExpenditurePeriodUnderAccrualBasis>
+</xbrli:xbrl>

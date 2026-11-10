@@ -1,0 +1,65 @@
+<xbrli:xbrl xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.xbrl.org/2003/linkbase http://www.xbrl.org/2003/xbrl-linkbase-2003-12-31.xsd" xmlns:inv="http://xbrl.mof.gov.cn/taxonomy/2023-12-31/inv" xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <link:schemaRef xlink:type="simple" xlink:href="inv_receiver_entry_point_2023-12-31.xsd" />
+  <xbrli:context id="c1">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://xbrl.mof.gov.cn">TEST-TAX-ID</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2021-01-31</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="u1">
+    <xbrli:measure>iso4217:CNY</xbrli:measure>
+  </xbrli:unit>
+  <inv:UniqueCodeOfInvoice contextRef="c1">TEST-DOCUMENT-REF</inv:UniqueCodeOfInvoice>
+  <inv:NameOfSeller contextRef="c1">样例主体-已脱敏</inv:NameOfSeller>
+  <inv:TaxpayerIdentificationNumberUnifiedSocialCreditCodeOfSeller contextRef="c1">TEST-TAX-ID</inv:TaxpayerIdentificationNumberUnifiedSocialCreditCodeOfSeller>
+  <inv:TotalAmountExcludingTax decimals="2" contextRef="c1" unitRef="u1">97029.70</inv:TotalAmountExcludingTax>
+  <inv:TotalTaxAmount decimals="2" contextRef="c1" unitRef="u1">970.30</inv:TotalTaxAmount>
+  <inv:TaxIncludedAmountInFigures decimals="2" contextRef="c1" unitRef="u1">98000.00</inv:TaxIncludedAmountInFigures>
+  <inv:DateOfIssue contextRef="c1">2021-01-21</inv:DateOfIssue>
+  <inv:WhetherInvoiceIsRedInvoice contextRef="c1">false</inv:WhetherInvoiceIsRedInvoice>
+  <inv:WhetherInvoiceHasBeenChecked contextRef="c1">true</inv:WhetherInvoiceHasBeenChecked>
+  <inv:WhetherInvoiceHasBeenBooked contextRef="c1">true</inv:WhetherInvoiceHasBeenBooked>
+  <inv:UnifiedSocialCreditCodeOfAccountingEntity contextRef="c1">TEST-TAX-ID</inv:UnifiedSocialCreditCodeOfAccountingEntity>
+  <inv:NameOfAccountingEntity contextRef="c1">样例主体-已脱敏</inv:NameOfAccountingEntity>
+  <inv:InformationOfAccountingDocumentsTuple>
+    <inv:NumberOfAccountingDocuments contextRef="c1">12345678</inv:NumberOfAccountingDocuments>
+    <inv:PostingDate contextRef="c1">2021-01-31</inv:PostingDate>
+    <inv:AccountingPeriod contextRef="c1">2021-01</inv:AccountingPeriod>
+    <inv:SummaryOfAccountingDocuments contextRef="c1">自由文本已脱敏</inv:SummaryOfAccountingDocuments>
+    <inv:InformationOfDebitAndCreditEntryTuple>
+      <inv:DebitOrCredit contextRef="c1">借方</inv:DebitOrCredit>
+      <inv:NameOfGeneralLedgerSubject contextRef="c1">合同履约成本</inv:NameOfGeneralLedgerSubject>
+      <inv:NameOfSubsidiaryLedgerSubject contextRef="c1">分包成本</inv:NameOfSubsidiaryLedgerSubject>
+      <inv:RecordedAmount decimals="2" contextRef="c1" unitRef="u1">97029.70</inv:RecordedAmount>
+    </inv:InformationOfDebitAndCreditEntryTuple>
+    <inv:InformationOfDebitAndCreditEntryTuple>
+      <inv:DebitOrCredit contextRef="c1">借方</inv:DebitOrCredit>
+      <inv:NameOfGeneralLedgerSubject contextRef="c1">应交税费-应交增值税</inv:NameOfGeneralLedgerSubject>
+      <inv:NameOfSubsidiaryLedgerSubject contextRef="c1">进项税额</inv:NameOfSubsidiaryLedgerSubject>
+      <inv:RecordedAmount decimals="2" contextRef="c1" unitRef="u1">970.30</inv:RecordedAmount>
+    </inv:InformationOfDebitAndCreditEntryTuple>
+    <inv:InformationOfDebitAndCreditEntryTuple>
+      <inv:DebitOrCredit contextRef="c1">贷方</inv:DebitOrCredit>
+      <inv:NameOfGeneralLedgerSubject contextRef="c1">应付账款</inv:NameOfGeneralLedgerSubject>
+      <inv:NameOfSubsidiaryLedgerSubject contextRef="c1">工程款</inv:NameOfSubsidiaryLedgerSubject>
+      <inv:RecordedAmount decimals="2" contextRef="c1" unitRef="u1">98000.00</inv:RecordedAmount>
+    </inv:InformationOfDebitAndCreditEntryTuple>
+  </inv:InformationOfAccountingDocumentsTuple>
+  <inv:ContractNumber contextRef="c1">TEST-DOCUMENT-REF</inv:ContractNumber>
+  <inv:MatchingStateBetweenBusinessDocumentsAndVatEInvoice contextRef="c1">已匹配</inv:MatchingStateBetweenBusinessDocumentsAndVatEInvoice>
+  <inv:WhetherInvoiceHasBeenFactoredSoldOrSecuritized contextRef="c1">false</inv:WhetherInvoiceHasBeenFactoredSoldOrSecuritized>
+  <inv:WhetherInvoiceHasBeenPaid contextRef="c1">true</inv:WhetherInvoiceHasBeenPaid>
+  <inv:NumberOfBankElectronicReceipt contextRef="c1">TEST-DOCUMENT-REF</inv:NumberOfBankElectronicReceipt>
+  <inv:WhetherInputVatHasBeenTransferredOut contextRef="c1">false</inv:WhetherInputVatHasBeenTransferredOut>
+  <inv:WhetherInvoiceUsageHasBeenConfirmed contextRef="c1">true</inv:WhetherInvoiceUsageHasBeenConfirmed>
+  <inv:WhetherPreTaxDeductionOfIncomeTaxHasBeenCompleted contextRef="c1">true</inv:WhetherPreTaxDeductionOfIncomeTaxHasBeenCompleted>
+  <inv:BeginningOfPreTaxDeductionYearOfIncomeTax contextRef="c1">2021</inv:BeginningOfPreTaxDeductionYearOfIncomeTax>
+  <inv:EndOfPreTaxDeductionYearOfIncomeTax contextRef="c1">2021</inv:EndOfPreTaxDeductionYearOfIncomeTax>
+  <inv:BeginningOfExpenditurePeriodUnderAccrualBasis contextRef="c1">2021-01</inv:BeginningOfExpenditurePeriodUnderAccrualBasis>
+  <inv:EndOfExpenditurePeriodUnderAccrualBasis contextRef="c1">2021-01</inv:EndOfExpenditurePeriodUnderAccrualBasis>
+  <inv:UsageConfirmation contextRef="c1">XXXXXX</inv:UsageConfirmation>
+  <inv:PeriodOfUsageConfirmation contextRef="c1">2021-01</inv:PeriodOfUsageConfirmation>
+  <inv:AmountOfTransferredOutInputVat decimals="0" contextRef="c1" unitRef="u1">0</inv:AmountOfTransferredOutInputVat>
+</xbrli:xbrl>

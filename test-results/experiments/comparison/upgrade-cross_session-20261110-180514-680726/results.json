@@ -1,0 +1,98 @@
+{
+  "version": "upgrade",
+  "case": "cross_session",
+  "created_at": "2026-11-10T18:05:14.884460+08:00",
+  "steps": [
+    {
+      "message": "为甲企业2026年9月建立只跟进F002和F003的用途任务。F002的实际用途是购买培训资料，先记为草稿，暂时不要保存。",
+      "reply": "已为甲企业建立 2026年9月 的用途任务，范围只跟进 F002 和 F003。\n\nF002 的用途“购买培训资料”已记为草稿，尚未保存到发票。F003 的用途还缺，需要您提供实际业务目的。",
+      "status": "ok",
+      "elapsed_seconds": 4.22,
+      "tools": [
+        "task_create",
+        "update_task_memory"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "继续甲企业上次9月的任务，告诉我F002草稿的用途，先别改数据。",
+      "reply": "甲企业 2026-09 的任务（范围：F002、F003）目前仍是待补用途状态，但 F002 没有已保存的草稿用途——任务记忆里的草稿为空，发票上的用途字段也是空的。\n\nF002 当前信息：开票日期 2026-09-08，销售方 书林图文（模拟），项目 复印纸、打印服务，金额 800.00 元，用途和备注均未填写。\n\n本次只做了查询，没有修改任何数据。如需填写用途，请告诉我这张票实际用于什么业务或活动。",
+      "status": "ok",
+      "elapsed_seconds": 5.94,
+      "tools": [
+        "inspect_task_frontier",
+        "read_invoice"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "把刚才展示的F002用途草稿保存。",
+      "reply": "目前没有可保存的 F002 用途草稿：任务记忆里没有 F002 的用途草稿，发票 F002（2026-09-08，书林图文，复印纸、打印服务，800.00 元）的用途字段也是空的。\n\n请告诉我这张发票实际用于什么业务或活动，我再据此整理用途并保存。",
+      "status": "ok",
+      "elapsed_seconds": 2.69,
+      "tools": [
+        "inspect_task_frontier",
+        "read_invoice"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    }
+  ],
+  "checks": {
+    "first_no_write": true,
+    "second_no_write": true,
+    "resumed_draft_visible": false,
+    "correct_final_value": false,
+    "runtime_ok": true
+  },
+  "passed": false,
+  "model_calls": 6,
+  "input_tokens": 45925,
+  "output_tokens": 699,
+  "estimated_increment_cny": 0.048721,
+  "unknown_calls": 0,
+  "shared_ledger_new_calls": 6,
+  "shared_ledger_increment_cny": 0.048721,
+  "completed_at": "2026-11-10T18:05:27.752516+08:00"
+}

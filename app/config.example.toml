@@ -1,0 +1,27 @@
+# Copy to config.toml or set TAXHARNESS_CONFIG. No credential value belongs here.
+# Source files and database are selected by CLI/startup arguments or their
+# project-relative defaults under data/ and artifacts/.
+
+[provider]
+kind = "deepseek"
+base_url = "https://api.deepseek.com"
+model = "deepseek-flash"
+thinking = false
+# Set credential_dir to an external directory, or use TAXHARNESS_API_KEY.
+# credential_dir = "../external-credentials"
+live_enabled = false
+timeout_seconds = 180
+max_output_tokens = 4096
+context_budget_tokens = 16000
+# Set a positive budget only after explicit authorization; model calls remain off otherwise.
+budget_usd = 2
+
+# When the evaluation provider supplies its actual configuration, add a named
+# profile and select it with TAXHARNESS_PROFILE. Pricing is CNY per 1M tokens.
+# [profiles.evaluation]
+# kind = "openai_compatible"
+# model = "<official-model-id>"
+# base_url = "<official-base-url>"
+# api_key_env = "TAXHARNESS_EVALUATION_API_KEY"
+# input_price_cny_per_million = <实际输入价格>
+# output_price_cny_per_million = <实际输出价格>

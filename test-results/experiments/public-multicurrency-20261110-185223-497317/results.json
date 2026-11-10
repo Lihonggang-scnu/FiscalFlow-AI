@@ -1,0 +1,341 @@
+{
+  "source_invoices": 233,
+  "source_lines": 540,
+  "source_void": 17,
+  "periods": 44,
+  "preview_accepted": 217,
+  "preview_issues": [
+    {
+      "row_number": 24,
+      "source_invoice_id": "INV-054331",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 45,
+      "source_invoice_id": "INV-744683",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 62,
+      "source_invoice_id": "INV-950004",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 84,
+      "source_invoice_id": "INV-605103",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 85,
+      "source_invoice_id": "INV-059733",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 96,
+      "source_invoice_id": "INV-910338",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 121,
+      "source_invoice_id": "INV-387024",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 154,
+      "source_invoice_id": "INV-186930",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 161,
+      "source_invoice_id": "INV-095599",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 177,
+      "source_invoice_id": "INV-900264",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 184,
+      "source_invoice_id": "INV-982932",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 193,
+      "source_invoice_id": "INV-018856",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 196,
+      "source_invoice_id": "INV-814277",
+      "issue_code": "invalid_row",
+      "details": "币种 'CHF' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 198,
+      "source_invoice_id": "INV-729930",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 219,
+      "source_invoice_id": "INV-527948",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    },
+    {
+      "row_number": 227,
+      "source_invoice_id": "INV-858265",
+      "issue_code": "invalid_row",
+      "details": "币种 'CAD' 不在当前支持映射中，请先核实并配置。"
+    }
+  ],
+  "import_counts": {
+    "inserted": 217,
+    "updated": 0,
+    "unchanged": 0,
+    "conflicts": 0,
+    "duplicate_lines": 0
+  },
+  "expected_active": 216,
+  "actual_active": 217,
+  "mismatches": [
+    {
+      "period": "2022-03",
+      "currency": "CHF",
+      "expected_total": "576.62",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2022-03",
+      "currency": "GBP",
+      "expected_total": "0",
+      "actual_total": "17189.76",
+      "expected_count": 0,
+      "actual_count": 1
+    },
+    {
+      "period": "2022-08",
+      "currency": "EUR",
+      "expected_total": "0",
+      "actual_total": "13268.05",
+      "expected_count": 0,
+      "actual_count": 2
+    },
+    {
+      "period": "2023-01",
+      "currency": "GBP",
+      "expected_total": "22322.66",
+      "actual_total": "30513.56",
+      "expected_count": 3,
+      "actual_count": 5
+    },
+    {
+      "period": "2023-02",
+      "currency": "CHF",
+      "expected_total": "13110.69",
+      "actual_total": "0",
+      "expected_count": 2,
+      "actual_count": 0
+    },
+    {
+      "period": "2023-03",
+      "currency": "CAD",
+      "expected_total": "225.60",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2023-03",
+      "currency": "EUR",
+      "expected_total": "0",
+      "actual_total": "3250.58",
+      "expected_count": 0,
+      "actual_count": 1
+    },
+    {
+      "period": "2023-04",
+      "currency": "CAD",
+      "expected_total": "3591.36",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2023-06",
+      "currency": "CHF",
+      "expected_total": "2197.46",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2023-10",
+      "currency": "CHF",
+      "expected_total": "7106.52",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2023-10",
+      "currency": "USD",
+      "expected_total": "98.11",
+      "actual_total": "1768.68",
+      "expected_count": 1,
+      "actual_count": 2
+    },
+    {
+      "period": "2023-11",
+      "currency": "USD",
+      "expected_total": "14643.58",
+      "actual_total": "15519.05",
+      "expected_count": 4,
+      "actual_count": 5
+    },
+    {
+      "period": "2023-12",
+      "currency": "CAD",
+      "expected_total": "3591.36",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2023-12",
+      "currency": "GBP",
+      "expected_total": "17999.62",
+      "actual_total": "25583.59",
+      "expected_count": 4,
+      "actual_count": 5
+    },
+    {
+      "period": "2024-01",
+      "currency": "CAD",
+      "expected_total": "1100.42",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2024-02",
+      "currency": "CAD",
+      "expected_total": "288.31",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2024-05",
+      "currency": "EUR",
+      "expected_total": "4353.86",
+      "actual_total": "7586.17",
+      "expected_count": 5,
+      "actual_count": 6
+    },
+    {
+      "period": "2024-05",
+      "currency": "USD",
+      "expected_total": "1296.04",
+      "actual_total": "8359.78",
+      "expected_count": 1,
+      "actual_count": 2
+    },
+    {
+      "period": "2024-08",
+      "currency": "GBP",
+      "expected_total": "34481.67",
+      "actual_total": "34655.66",
+      "expected_count": 4,
+      "actual_count": 5
+    },
+    {
+      "period": "2024-09",
+      "currency": "CAD",
+      "expected_total": "1105.66",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2025-01",
+      "currency": "CAD",
+      "expected_total": "135.84",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2025-02",
+      "currency": "CAD",
+      "expected_total": "2708.82",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2025-03",
+      "currency": "EUR",
+      "expected_total": "129.05",
+      "actual_total": "6262.40",
+      "expected_count": 1,
+      "actual_count": 2
+    },
+    {
+      "period": "2025-04",
+      "currency": "CAD",
+      "expected_total": "6439.12",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2025-04",
+      "currency": "EUR",
+      "expected_total": "4902.28",
+      "actual_total": "8642.40",
+      "expected_count": 1,
+      "actual_count": 2
+    },
+    {
+      "period": "2025-04",
+      "currency": "USD",
+      "expected_total": "16.74",
+      "actual_total": "8529.63",
+      "expected_count": 1,
+      "actual_count": 2
+    },
+    {
+      "period": "2025-07",
+      "currency": "CHF",
+      "expected_total": "2110.60",
+      "actual_total": "0",
+      "expected_count": 1,
+      "actual_count": 0
+    },
+    {
+      "period": "2025-07",
+      "currency": "EUR",
+      "expected_total": "18500.26",
+      "actual_total": "30600.95",
+      "expected_count": 1,
+      "actual_count": 2
+    }
+  ],
+  "passed": false
+}

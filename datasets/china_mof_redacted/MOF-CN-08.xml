@@ -1,0 +1,48 @@
+<xbrli:xbrl xmlns="http://www.xbrl.org/2003/instance" xmlns:inv="http://xbrl.mof.gov.cn/taxonomy/2023-12-31/inv" xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.xbrl.org/2003/linkbase http://www.xbrl.org/2003/xbrl-linkbase-2003-12-31.xsd">
+  <link:schemaRef xlink:type="simple" xlink:href="inv_issuer_entry_point_2023-12-31.xsd" />
+  <xbrli:context id="c1">
+    <xbrli:entity>
+      <xbrli:identifier scheme="http://xbrl.mof.gov.cn">TEST-TAX-ID</xbrli:identifier>
+    </xbrli:entity>
+    <xbrli:period>
+      <xbrli:instant>2021-01-21</xbrli:instant>
+    </xbrli:period>
+  </xbrli:context>
+  <xbrli:unit id="u1">
+    <xbrli:measure>iso4217:CNY</xbrli:measure>
+  </xbrli:unit>
+  <inv:TypeOfInvoice contextRef="c1">增值税电子专用发票</inv:TypeOfInvoice>
+  <inv:UniqueCodeOfInvoice contextRef="c1">TEST-DOCUMENT-REF</inv:UniqueCodeOfInvoice>
+  <inv:LocationOfInvoice contextRef="c1">北京</inv:LocationOfInvoice>
+  <inv:CodeOfInvoice contextRef="c1">TEST-DOCUMENT-REF</inv:CodeOfInvoice>
+  <inv:NumberOfInvoice contextRef="c1">TEST-DOCUMENT-REF</inv:NumberOfInvoice>
+  <inv:DateOfIssue contextRef="c1">2021-01-21</inv:DateOfIssue>
+  <inv:IdentifyingCode contextRef="c1">TEST-DOCUMENT-REF</inv:IdentifyingCode>
+  <inv:NumberOfInvoiceMachine contextRef="c1">TEST-DOCUMENT-REF</inv:NumberOfInvoiceMachine>
+  <inv:NameOfPurchaser contextRef="c1">样例主体-已脱敏</inv:NameOfPurchaser>
+  <inv:AddressPhoneNumberOfPurchaser contextRef="c1">地址电话已脱敏</inv:AddressPhoneNumberOfPurchaser>
+  <inv:DepositBankAndAccountNumberOfPurchaser contextRef="c1">TEST-BANK-ACCOUNT</inv:DepositBankAndAccountNumberOfPurchaser>
+  <inv:SecurityCode contextRef="c1">TEST-DOCUMENT-REF</inv:SecurityCode>
+  <inv:TotalAmountExcludingTax decimals="2" contextRef="c1" unitRef="u1">97029.70</inv:TotalAmountExcludingTax>
+  <inv:TotalTaxAmount decimals="2" contextRef="c1" unitRef="u1">970.30</inv:TotalTaxAmount>
+  <inv:TaxIncludedAmountInWords contextRef="c1">玖万捌仟元整</inv:TaxIncludedAmountInWords>
+  <inv:TaxIncludedAmountInFigures decimals="2" contextRef="c1" unitRef="u1">98000.00</inv:TaxIncludedAmountInFigures>
+  <inv:NameOfSeller contextRef="c1">样例主体-已脱敏</inv:NameOfSeller>
+  <inv:AddressPhoneNumberOfSeller contextRef="c1">地址电话已脱敏</inv:AddressPhoneNumberOfSeller>
+  <inv:DepositBankAndAccountNumberOfSeller contextRef="c1">TEST-BANK-ACCOUNT</inv:DepositBankAndAccountNumberOfSeller>
+  <inv:Payee contextRef="c1">经办人已脱敏</inv:Payee>
+  <inv:Reviewer contextRef="c1">经办人已脱敏</inv:Reviewer>
+  <inv:Issuer contextRef="c1">经办人已脱敏</inv:Issuer>
+  <inv:InformationOfTaxableGoodsOrServicesDetailItemsTuple>
+    <inv:NatureOfInvoiceLine contextRef="c1">商品项目已脱敏</inv:NatureOfInvoiceLine>
+    <inv:NameOfTaxableGoodsOrServices contextRef="c1">商品项目已脱敏</inv:NameOfTaxableGoodsOrServices>
+    <inv:UnitPriceOfGoodsOrServices decimals="1" contextRef="c1" unitRef="u1">97029.7</inv:UnitPriceOfGoodsOrServices>
+    <inv:AmountExcludingTax decimals="2" contextRef="c1" unitRef="u1">97029.70</inv:AmountExcludingTax>
+    <inv:TaxRate contextRef="c1">1%</inv:TaxRate>
+    <inv:TaxAmount decimals="2" contextRef="c1" unitRef="u1">970.30</inv:TaxAmount>
+  </inv:InformationOfTaxableGoodsOrServicesDetailItemsTuple>
+  <inv:TaxpayerIdentificationNumberUnifiedSocialCreditCodeOfPurchaser contextRef="c1">TEST-TAX-ID</inv:TaxpayerIdentificationNumberUnifiedSocialCreditCodeOfPurchaser>
+  <inv:TaxpayerIdentificationNumberUnifiedSocialCreditCodeOfSeller contextRef="c1">TEST-TAX-ID</inv:TaxpayerIdentificationNumberUnifiedSocialCreditCodeOfSeller>
+  <inv:BeginningOfIncomePeriodUnderAccrualBasis contextRef="c1">2021-01</inv:BeginningOfIncomePeriodUnderAccrualBasis>
+  <inv:EndOfIncomePeriodUnderAccrualBasis contextRef="c1">2021-01</inv:EndOfIncomePeriodUnderAccrualBasis>
+</xbrli:xbrl>

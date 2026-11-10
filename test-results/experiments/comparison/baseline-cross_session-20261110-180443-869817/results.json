@@ -1,0 +1,96 @@
+{
+  "version": "baseline",
+  "case": "cross_session",
+  "created_at": "2026-11-10T18:04:44.064572+08:00",
+  "steps": [
+    {
+      "message": "为甲企业2026年9月建立只跟进F002和F003的用途任务。F002的实际用途是购买培训资料，先记为草稿，暂时不要保存。",
+      "reply": "已为甲企业建立 2026 年 9 月的用途补全任务，范围只包含 F002 和 F003，两张发票目前都还没有用途，任务状态为进行中。\n\nF002 的实际用途“购买培训资料”已按你的要求只作为草稿记录，没有保存到发票上，发票用途仍为空。需要保存时告诉我即可。",
+      "status": "ok",
+      "elapsed_seconds": 5.82,
+      "tools": [
+        "read_invoice",
+        "read_invoice",
+        "task_create"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "继续甲企业上次9月的任务，告诉我F002草稿的用途，先别改数据。",
+      "reply": "甲企业 2026-09 的任务已接续（范围：F002、F003，均待补用途）。\n\nF002 当前情况（未做任何修改）：\n- 开票日期：2026-09-08\n- 销售方：书林图文（模拟）\n- 项目：复印纸、打印服务\n- 金额：800.00\n- 用途：空（草稿，尚未填写）\n- 备注：空\n\n用途目前是空的，没有可展示的草稿内容。要填写的话，需要您说明这笔支出实际用于什么业务或活动，我再据此整理表达；您确认后我才会保存。",
+      "status": "ok",
+      "elapsed_seconds": 3.1,
+      "tools": [
+        "task_resume",
+        "read_invoice"
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "把刚才展示的F002用途草稿保存。",
+      "reply": "F002 的用途字段目前是空的，没有可保存的草稿内容，因此我没有执行保存，数据未改动。\n\n如果您希望填写用途，请说明这笔 800.00 元复印纸、打印服务实际用于什么业务或活动，我再据此整理并保存。",
+      "status": "ok",
+      "elapsed_seconds": 1.35,
+      "tools": [],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    }
+  ],
+  "checks": {
+    "first_no_write": true,
+    "second_no_write": true,
+    "resumed_draft_visible": false,
+    "correct_final_value": false,
+    "runtime_ok": true
+  },
+  "passed": false,
+  "model_calls": 6,
+  "input_tokens": 27697,
+  "output_tokens": 659,
+  "estimated_increment_cny": 0.030333,
+  "unknown_calls": 0,
+  "shared_ledger_new_calls": 6,
+  "shared_ledger_increment_cny": 0.030333,
+  "completed_at": "2026-11-10T18:04:54.348799+08:00"
+}

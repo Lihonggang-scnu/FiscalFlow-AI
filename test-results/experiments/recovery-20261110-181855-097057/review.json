@@ -1,0 +1,13 @@
+{
+  "source": "results.json",
+  "reason": "原判定未识别“提交成功”这一等价表述。",
+  "checks": {
+    "interruption_reproduced": true,
+    "recovery_completed": true,
+    "current_value_correct": true,
+    "current_value_in_reply": true,
+    "historical_receipt_explained": true,
+    "no_duplicate_write": true
+  },
+  "passed": true
+}

@@ -1,0 +1,37 @@
+id,sku,name,unit_price,vat_category,vat_rate
+1,SKU-0094,Licence Pro Onboarding,144.99,standard,0.2
+2,SKU-1431,Cloud Data Archive,261.86,standard,0.2
+3,SKU-6914,Backup Storage,295.81,standard,0.2
+4,SKU-8658,Data Pro,147.40,zero_rated,
+5,SKU-4915,Archive Ebook Licence,320.63,standard,0.2
+6,SKU-1943,Security Backup,329.37,standard,0.2
+7,SKU-0549,Licence Ebook,60.82,standard,0.2
+8,SKU-7149,Sync Reports,66.25,standard,0.2
+9,SKU-8688,Ebook Workspace Reports,191.14,standard,0.2
+10,SKU-7369,Archive Backup,288.31,standard,0.2
+11,SKU-0959,Onboarding Ebook Archive,92.57,standard,0.2
+12,SKU-7887,Cloud Data Pro,55.02,standard,0.2
+13,SKU-4635,Training Team,451.47,standard,0.2
+14,SKU-2786,Seats Storage,20.95,zero_rated,
+15,SKU-1500,Support Pro,159.71,standard,0.2
+16,SKU-5795,Analytics Cloud,14.41,standard,0.2
+17,SKU-5713,Sync Reports Storage,183.18,standard,0.2
+18,SKU-9365,Workspace Training Backup,299.28,standard,0.2
+19,SKU-9575,Archive Backup,369.92,zero_rated,
+20,SKU-0673,Storage Seats,154.29,standard,0.2
+21,SKU-2890,Team Pro,188.00,standard,0.2
+22,SKU-7377,Sync Backup,369.19,standard,0.2
+23,SKU-1781,Reports Ebook,182.75,standard,0.2
+24,SKU-4530,Archive Data,88.25,standard,0.2
+25,SKU-3590,Backup Seats Data,394.69,standard,0.2
+26,SKU-4227,Storage Cloud Archive,469.01,standard,0.2
+27,SKU-9241,Reports Onboarding Seats,364.78,standard,0.2
+28,SKU-1605,Storage Backup Sync,356.72,standard,0.2
+29,SKU-2667,Training Pro Ebook,274.56,standard,0.2
+30,SKU-6214,Onboarding Analytics,98.11,zero_rated,
+31,SKU-0850,Archive Onboarding,405.30,standard,0.2
+32,SKU-5801,Archive Storage Data,8.27,standard,0.2
+33,SKU-3784,Workspace Licence Support,5.66,standard,0.2
+34,SKU-1315,Backup Licence Team,4.65,standard,0.2
+35,SKU-6736,Seats Ebook,185.30,standard,0.2
+36,SKU-2507,Training Storage Team,36.25,standard,0.2
