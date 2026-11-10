@@ -44,13 +44,13 @@ def main() -> int:
         return 0
     if _peak_window(datetime.now(ZoneInfo("Asia/Shanghai"))):
         raise SystemExit("当前是高峰时段；请在闲时运行企业场景。")
-    budget_path = UPGRADE / "budget.json"
+    budget_path = Path(os.getenv("TAXHARNESS_UPGRADE_BUDGET", str(UPGRADE / "budget.json")))
     budget = json.loads(budget_path.read_text(encoding="utf-8"))
     if budget["status"] != "active" or budget["new_limit_cny"] != 10 or not budget["offpeak_only"]:
         raise SystemExit("TaskLedger 预算配置不可用。")
     ledger = Path(budget["shared_ledger"])
     before_count, before_total = _total(ledger)
-    run_root = UPGRADE / "experiments" / ("enterprise-live-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
+    run_root = Path(os.getenv("TAXHARNESS_EXPERIMENTS_DIR", str(UPGRADE / "experiments"))) / ("enterprise-live-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
     run_root.mkdir(parents=True)
     database = run_root / "enterprise.sqlite3"
     os.environ["TAXHARNESS_LIVE_MODEL_ENABLED"] = "true"
@@ -119,7 +119,8 @@ def main() -> int:
             report["steps"].append({"name": "新会话确认并待复核", "passed": ok, "reply": second.get("reply", ""), "saved": saved, "other_unchanged": other_unchanged})
             print(f"新会话确认并待复核：{'通过' if ok else '需处理'}", flush=True)
             if ok:
-                reviewed = service.review_invoice(user=reviewer, task_id=task["task_id"], invoice_id=ids["S001"], action="approve")
+                review_token = next(row["review_token"] for row in service.work_item(user=reviewer, task_id=task["task_id"])["invoices"]["items"] if row["invoice_id"] == ids["S001"])
+                reviewed = service.review_invoice(user=reviewer, task_id=task["task_id"], invoice_id=ids["S001"], action="approve", review_token=review_token)
                 report["steps"].append({"name": "复核人批准", "passed": reviewed.get("status") == "ok"})
                 ok = reviewed.get("status") == "ok"
         report["passed"] = ok

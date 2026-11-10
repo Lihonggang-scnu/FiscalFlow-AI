@@ -4,7 +4,8 @@ from langchain_core.language_models.fake_chat_models import FakeMessagesListChat
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from taxharness.agent import AgentRuntime
-from taxharness.context_compiler import compile_context
+from taxharness.context_compiler import compile_context, estimated_tokens, model_context
+from taxharness.errors import ContextBudgetExceeded
 from taxharness.storage import initialize_database
 
 
@@ -42,6 +43,39 @@ def test_latest_user_turn_is_retained_when_budget_is_small():
     selected, manifest = compile_context(messages, token_budget=1, recent_turns=8, pinned={"turn-0"})
     assert [message.id for message in selected if isinstance(message, HumanMessage)] == ["turn-4"]
     assert manifest["latest_turn_over_budget"] is True
+
+
+def test_total_context_is_bounded_without_changing_stored_notes():
+    from langchain_core.messages import messages_to_dict
+    import pytest
+
+    original = "重要资料" * 12000
+    state = {"task_memory": {"notes": {"long": {"value": original, "source_turn_id": "turn-old"}}},
+             "task_frontier": {"frontier": {"notes": {"long": {"value": original}}}}}
+    system, selected = model_context("助手", state, [], [HumanMessage(content="继续")],
+                                     token_budget=10000, tag="taxharness_program_context")
+    assert "value_truncated" in system and state["task_memory"]["notes"]["long"]["value"] == original
+    assert estimated_tokens({"system": system, "messages": messages_to_dict(selected), "tools": []}) <= 10000
+    with pytest.raises(ContextBudgetExceeded, match="过长"):
+        model_context("助手", {}, [], [HumanMessage(content="很长" * 10000)], token_budget=100, tag="test")
+
+
+def test_large_current_turn_folds_earlier_complete_tool_exchange():
+    import json
+    from langchain_core.messages import messages_to_dict
+
+    read = AIMessage(content="", tool_calls=[{"name": "read_invoice", "args": {"invoice_id": "F003"}, "id": "read", "type": "tool_call"}])
+    observed = ToolMessage(name="read_invoice", tool_call_id="read", content=json.dumps({"status": "ok", "data": {
+        "company_id": "C001", "invoice_id": "F003", "purpose": None, "remarks": None, "revision": 1,
+        "amount": "300.00", "extra": "附加说明" * 2000}}, ensure_ascii=False))
+    save = AIMessage(content="", tool_calls=[{"name": "save_invoice", "args": {"invoice_id": "F003"}, "id": "save", "type": "tool_call"}])
+    receipt = ToolMessage(name="save_invoice", tool_call_id="save", content='{"status":"committed","after":{"invoice_id":"F003","purpose":"寄送文件"}}')
+    messages = [HumanMessage(content="保存 F003 用途"), read, observed, save, receipt]
+    system, selected = model_context("助手", {}, [], messages, token_budget=4000, tag="taxharness_program_context")
+    assert "earlier_turn_tool_results" in system and "F003" in system
+    assert len(selected) == 3 and selected[-1].tool_call_id == "save"
+    assert estimated_tokens({"system": system, "messages": messages_to_dict(selected), "tools": []}) <= 4000
+    assert len(messages) == 5 and len(observed.content) > 5000
 
 
 def test_recent_context_changes_its_prefix_in_batches():

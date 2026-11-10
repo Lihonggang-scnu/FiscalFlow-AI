@@ -23,6 +23,9 @@ _ALIASES = {
     "invoice_status": {"invoice_status", "status", "发票状态", "票据状态", "单据状态"},
     "invoice_number": {"invoice_number", "发票号码", "数电发票号码"},
     "invoice_code": {"invoice_code", "发票代码"},
+    "invoice_unique_code": {"invoice_unique_code", "uniquecodeofinvoice", "发票唯一代码"},
+    "invoice_type": {"invoice_type", "发票类型"},
+    "identity_status": {"identity_status"},
     "seller_tax_id": {"seller_tax_id", "销售方纳税人识别号", "销售方税号"},
     "buyer_name": {"buyer_name", "购买方名称"},
     "buyer_tax_id": {"buyer_tax_id", "购买方纳税人识别号", "购买方税号"},
@@ -128,13 +131,54 @@ def _default_mapping(headers: list[str]) -> dict[str, str]:
     return result
 
 
+def _document_identity_key(source: dict[str, Any]) -> tuple[str, str] | None:
+    code = _text(source.get("invoice_code"))
+    number = _text(source.get("invoice_number"))
+    unique_code = _text(source.get("invoice_unique_code"))
+    if unique_code.isdigit() and len(unique_code) == 20:
+        return "", unique_code
+    if code.isdigit() and number.isdigit():
+        return code, number
+    if not code and number.isdigit() and len(number) == 20:
+        return "", number
+    return None
+
+
+def _weak_identity_tokens(source: dict[str, Any]) -> set[tuple[str, str]]:
+    tokens = set()
+    for key in ("invoice_unique_code", "invoice_number"):
+        value = _text(source.get(key))
+        if value:
+            tokens.add(("reference", value))
+    code = _text(source.get("invoice_code"))
+    number = _text(source.get("invoice_number"))
+    if code and number:
+        tokens.add(("pair", f"{code}\x1f{number}"))
+    return tokens
+
+
+def _has_weak_identity_candidate(connection, *, company_id: str, source: dict[str, Any]) -> bool:
+    tokens = _weak_identity_tokens(source)
+    if not tokens:
+        return False
+    for row in connection.execute("SELECT source_data_json FROM enterprise_invoice_links WHERE company_id=?", (company_id,)):
+        prior_source = json.loads(row["source_data_json"])
+        if tokens & _weak_identity_tokens(prior_source):
+            return True
+    return False
+
+
 def parse_import(*, filename: str, content: bytes, mapping: dict[str, str], default_currency: str) -> dict[str, Any]:
     if Path(filename).suffix.lower() in {".xml", ".ofd"}:
         from .document_ingest import read_structured_invoice
 
         records, document_issues = read_structured_invoice(filename, content)
+        file_hash = hashlib.sha256(content).hexdigest()
+        for record in records:
+            record["identity_status"] = "strong" if _document_identity_key(record) else "needs_review"
         headers = ["source_invoice_id", "issue_date", "amount", "currency", "seller_name", "project_name",
-                   "invoice_number", "invoice_code", "seller_tax_id", "buyer_name", "buyer_tax_id", "net_amount", "tax_amount",
+                   "invoice_number", "invoice_code", "invoice_unique_code", "invoice_type", "identity_status",
+                   "seller_tax_id", "buyer_name", "buyer_tax_id", "net_amount", "tax_amount",
                    "accounting_period", "booked_status", "checked_status", "paid_status"]
         if any("invoice_status" in record for record in records):
             headers.append("invoice_status")
@@ -146,7 +190,7 @@ def parse_import(*, filename: str, content: bytes, mapping: dict[str, str], defa
             parsed = parse_import(filename="structured.csv", content=output.getvalue().encode("utf-8-sig"), mapping={}, default_currency=default_currency)
         else:
             parsed = {"headers": headers, "mapping": _default_mapping(headers), "rows": [], "issues": []}
-        parsed["file_hash"] = hashlib.sha256(content).hexdigest()
+        parsed["file_hash"] = file_hash
         parsed["issues"] = document_issues + parsed["issues"]
         parsed["document_format"] = Path(filename).suffix.lower()[1:]
         return parsed
@@ -177,6 +221,8 @@ def parse_import(*, filename: str, content: bytes, mapping: dict[str, str], defa
             if isinstance(invoice_number, (int, float)) and not isinstance(invoice_number, bool) and abs(invoice_number) >= 10**15:
                 raise ValueError("Excel 中的长发票号码被保存为数值，可能丢失精度；请按文本格式重新导出。")
             invoice_code = _text(read("invoice_code")) if mapping.get("invoice_code") else ""
+            source_alias_is_number = (mapping.get("source_invoice_id") == mapping.get("invoice_number")
+                                      or (invoice_number is not None and source_id == _text(invoice_number)))
             if invoice_code and mapping.get("source_invoice_id") == mapping.get("invoice_number"):
                 source_id = f"{invoice_code}-{_text(invoice_number)}"
             issue_date = _date(read("issue_date"))
@@ -211,10 +257,13 @@ def parse_import(*, filename: str, content: bytes, mapping: dict[str, str], defa
             }
             if mapping.get("invoice_status"):
                 source["source_status"], source["source_status_raw"] = _invoice_status(read("invoice_status"))
-            for key in ("invoice_number", "invoice_code", "seller_tax_id", "buyer_name", "buyer_tax_id", "net_amount", "tax_amount",
+            for key in ("invoice_number", "invoice_code", "invoice_unique_code", "invoice_type", "identity_status",
+                        "seller_tax_id", "buyer_name", "buyer_tax_id", "net_amount", "tax_amount",
                         "accounting_period", "booked_status", "checked_status", "paid_status"):
                 if mapping.get(key):
                     source[key] = _text(read(key))
+            if source_alias_is_number and _document_identity_key(source) is None:
+                source["identity_status"] = "needs_review"
             digest = hashlib.sha256(json.dumps(source, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
             prior = seen.get(source_id)
             duplicate = prior is not None
@@ -289,7 +338,12 @@ class ImportManager:
                 "INSERT INTO enterprise_imports(import_id,user_id,company_id,source_system,filename,file_hash,row_count,created_at) VALUES(?,?,?,?,?,?,?,?)",
                 (import_id, user["user_id"], company_id, source_system, preview["filename"], preview["file_hash"], len(rows), now),
             )
-            counts = {"inserted": 0, "updated": 0, "unchanged": 0, "conflicts": 0, "duplicate_lines": 0, "duplicate_documents": 0, "void_in_source": 0}
+            prior_import = connection.execute(
+                "SELECT import_id FROM enterprise_imports WHERE company_id=? AND file_hash=? AND import_id<>? ORDER BY created_at DESC LIMIT 1",
+                (company_id, preview["file_hash"], import_id),
+            ).fetchone()
+            counts = {"inserted": 0, "updated": 0, "unchanged": 0, "conflicts": 0, "identity_reviews": 0,
+                      "duplicate_lines": 0, "duplicate_documents": 0, "void_in_source": 0}
             affected_periods: set[str] = set()
             recheck_by_period: dict[str, set[str]] = {}
             for issue in issues:
@@ -304,9 +358,38 @@ class ImportManager:
                     counts["duplicate_lines"] += 1
                     connection.execute("INSERT INTO enterprise_import_rows VALUES(?,?,?,?,?,?,?,?,?,?)", (import_id, row_number, source_system, source_id, company_id, None, digest, json.dumps(source, ensure_ascii=False, sort_keys=True), "duplicate_line", now))
                     continue
+                if prior_import:
+                    prior_row = connection.execute(
+                        "SELECT source_invoice_id,content_hash,invoice_id FROM enterprise_import_rows WHERE import_id=? AND row_number=? AND status<>'duplicate_line'",
+                        (prior_import["import_id"], row_number),
+                    ).fetchone()
+                    if prior_row and prior_row["source_invoice_id"] == source_id and prior_row["content_hash"] == digest:
+                        if prior_row["invoice_id"] is None:
+                            status = "identity_review"
+                            counts["identity_reviews"] += 1
+                            issue = {"row_number": row_number, "source_invoice_id": source_id, "issue_code": status,
+                                     "details": "同一附件的上一条记录仍待身份核对；本次未创建或合并发票。"}
+                            issues.append(issue)
+                            connection.execute("INSERT INTO enterprise_import_issues(issue_id,preview_id,row_number,source_invoice_id,issue_code,details_json,created_at) VALUES(?,?,?,?,?,?,?)",
+                                               ("issue-" + uuid4().hex, preview_id, row_number, source_id, status, json.dumps(issue, ensure_ascii=False), now))
+                            connection.execute("INSERT INTO enterprise_import_rows VALUES(?,?,?,?,?,?,?,?,?,?)",
+                                (import_id, row_number, source_system, source_id, company_id, prior_row["invoice_id"], digest,
+                                 json.dumps(source, ensure_ascii=False, sort_keys=True), status, now))
+                            continue
+                        current_link = connection.execute(
+                            "SELECT source_hash FROM enterprise_invoice_links WHERE company_id=? AND invoice_id=?",
+                            (company_id, prior_row["invoice_id"]),
+                        ).fetchone()
+                        if current_link and current_link["source_hash"] == digest:
+                            status = "duplicate_document"
+                            counts["duplicate_documents"] += 1
+                            connection.execute("INSERT INTO enterprise_import_rows VALUES(?,?,?,?,?,?,?,?,?,?)",
+                                (import_id, row_number, source_system, source_id, company_id, prior_row["invoice_id"], digest,
+                                 json.dumps(source, ensure_ascii=False, sort_keys=True), status, now))
+                            continue
                 link = connection.execute("SELECT * FROM enterprise_invoice_links WHERE company_id=? AND source_system=? AND source_invoice_id=?", (company_id, source_system, source_id)).fetchone()
+                previous_source = json.loads(link["source_data_json"]) if link else {}
                 if link and "source_status" not in source:
-                    previous_source = json.loads(link["source_data_json"])
                     for key in ("source_status", "source_status_raw"):
                         if key in previous_source:
                             source[key] = previous_source[key]
@@ -316,9 +399,35 @@ class ImportManager:
                     counts["void_in_source"] += 1
                 number = source.get("invoice_number", "")
                 code = source.get("invoice_code", "")
-                has_identity = bool(number and (code or (number.isdigit() and len(number) == 20)))
+                identity_key = _document_identity_key(source)
+                old_source_status = previous_source.get("source_status", "active") if link else None
+                source_status_changed = link is not None and old_source_status != source_status
+                if link is not None and identity_key is None and _weak_identity_tokens(source) and digest != link["source_hash"]:
+                    status = "identity_review"
+                    counts["identity_reviews"] += 1
+                    issue = {"row_number": row_number, "source_invoice_id": source_id, "issue_code": status,
+                             "details": "该来源编号不足以判断是否为同一张发票；本次未覆盖已有记录，请人工核对票面。"}
+                    issues.append(issue)
+                    connection.execute("INSERT INTO enterprise_import_issues(issue_id,preview_id,row_number,source_invoice_id,issue_code,details_json,created_at) VALUES(?,?,?,?,?,?,?)",
+                                       ("issue-" + uuid4().hex, preview_id, row_number, source_id, status, json.dumps(issue, ensure_ascii=False), now))
+                    connection.execute("INSERT INTO enterprise_import_rows VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (import_id, row_number, source_system, source_id, company_id, None, digest,
+                         json.dumps(source, ensure_ascii=False, sort_keys=True), status, now))
+                    continue
+                if link is None and identity_key is None and _has_weak_identity_candidate(connection, company_id=company_id, source=source):
+                    status = "identity_review"
+                    counts["identity_reviews"] += 1
+                    issue = {"row_number": row_number, "source_invoice_id": source_id, "issue_code": status,
+                             "details": "发票代码、号码或唯一引用不足以唯一定位；系统未合并或重复计入，请人工核对票面。"}
+                    issues.append(issue)
+                    connection.execute("INSERT INTO enterprise_import_issues(issue_id,preview_id,row_number,source_invoice_id,issue_code,details_json,created_at) VALUES(?,?,?,?,?,?,?)",
+                                       ("issue-" + uuid4().hex, preview_id, row_number, source_id, status, json.dumps(issue, ensure_ascii=False), now))
+                    connection.execute("INSERT INTO enterprise_import_rows VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (import_id, row_number, source_system, source_id, company_id, None, digest,
+                         json.dumps(source, ensure_ascii=False, sort_keys=True), status, now))
+                    continue
                 identity = connection.execute("SELECT * FROM enterprise_document_identities WHERE company_id=? AND invoice_code=? AND invoice_number=?",
-                                              (company_id, code, number)).fetchone() if has_identity else None
+                                              (company_id, identity_key[0], identity_key[1])).fetchone() if identity_key else None
                 if identity is not None and link is None:
                     current = connection.execute("""SELECT i.issue_date,x.amount_text,x.currency,x.source_status FROM invoices i
                         JOIN enterprise_invoice_extra x USING(company_id,invoice_id) WHERE i.company_id=? AND i.invoice_id=?""",
@@ -360,7 +469,7 @@ class ImportManager:
                     counts["inserted"] += 1
                     status = "inserted"
                 else:
-                    old_source = json.loads(link["source_data_json"])
+                    old_source = previous_source
                     affected_periods.add(current_invoice["issue_date"][:7])
                     owners = json.loads(link["field_owners_json"] or "{}")
                     source_version_changed = digest != link["source_hash"]
@@ -410,6 +519,9 @@ class ImportManager:
                     )
                     if source_version_changed:
                         connection.execute("UPDATE enterprise_invoice_extra SET purpose_review_status='stale',disposition=NULL,updated_at=? WHERE company_id=? AND invoice_id=?", (now, company_id, invoice_id))
+                        if source_status_changed:
+                            connection.execute("UPDATE enterprise_drafts SET status='conflict',draft_revision=draft_revision+1 WHERE company_id=? AND invoice_id=? AND status IN ('proposed','clarification')",
+                                               (company_id, invoice_id))
                         connection.execute(
                             """UPDATE enterprise_task_invoices SET status='pending',disposition=NULL,updated_at=?
                                WHERE company_id=? AND invoice_id=? AND task_id IN
@@ -429,10 +541,10 @@ class ImportManager:
                         ).fetchone()
                         if closed:
                             recheck_by_period.setdefault(source["issue_date"][:7], set()).add(invoice_id)
-                if has_identity:
+                if identity_key:
                     connection.execute("""INSERT OR IGNORE INTO enterprise_document_identities
                         (company_id,invoice_code,invoice_number,invoice_id,seller_tax_id,created_at) VALUES(?,?,?,?,?,?)""",
-                        (company_id, code, number, invoice_id, source.get("seller_tax_id", ""), now))
+                        (company_id, identity_key[0], identity_key[1], invoice_id, source.get("seller_tax_id", ""), now))
                 connection.execute("INSERT INTO enterprise_import_rows VALUES(?,?,?,?,?,?,?,?,?,?)", (import_id, row_number, source_system, source_id, company_id, invoice_id, digest, json.dumps(source, ensure_ascii=False, sort_keys=True), status, now))
             service = EnterpriseService(self.database)
             followups = [service._ensure_task(company_id=company_id, period=period, user_id=user["user_id"], invoice_ids=sorted(invoice_ids), origin="source_change") for period, invoice_ids in sorted(recheck_by_period.items())]

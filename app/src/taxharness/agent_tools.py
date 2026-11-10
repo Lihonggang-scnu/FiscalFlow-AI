@@ -24,6 +24,7 @@ from .services import TaxService
 from .storage import TaxDatabase
 from .task_ledger import TaskLedger
 from .task_manager import TaskManager
+from .turn_intent import company_aliases, write_conditions, write_restricted
 
 
 class MemoryOperation(BaseModel):
@@ -67,6 +68,8 @@ class AgentContext:
     attachment_observations: list[dict[str, Any]] = field(default_factory=list)
     recovered_operations: list[dict[str, Any]] = field(default_factory=list)
     last_frontier_diff: dict[str, Any] | None = None
+    last_frontier_scope: tuple[str, str, str | None, str | None] | None = None
+    observed_invoices: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False, compare=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
@@ -152,6 +155,8 @@ def make_agent_tools() -> list:
         with _services(runtime, company_id) as (context, target, service, _):
             result = service.read_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id, month=month)
             if result.get("status") == "ok":
+                with context.lock:
+                    context.observed_invoices.setdefault((target, invoice_id), dict(result["data"]))
                 _remember(context, target, invoice_id, result["data"]["issue_date"][:7])
             return _compact_for_user(result)
 
@@ -291,6 +296,13 @@ def make_agent_tools() -> list:
             ledger = TaskLedger(tasks.database)
             view = ledger.frontier(user_id=context.user_id, company_id=target,
                                    session_id=context.session_id, turn_id=context.turn_id)
+            task_targets = set(view["frontier"]["target_invoice_ids"])
+            for candidate in candidates:
+                required = candidate.get("required_slots") if isinstance(candidate, dict) else None
+                if isinstance(required, dict) and any(invoice_id not in task_targets or
+                        not isinstance(slots, list) or any(slot != "purpose" for slot in slots)
+                        for invoice_id, slots in required.items()):
+                    raise InvalidInputError("候选问题只能涉及当前任务中的票据用途，请按当前待办重新组织。")
             memory = ledger.memory(user_id=context.user_id, company_id=target)
             known = {(item["invoice_id"], item["field"]) for item in memory["drafts"].values()}
             known.update((invoice_id, "purpose") for invoice_id in view["frontier"]["completed"])
@@ -332,6 +344,9 @@ def make_agent_tools() -> list:
     @tool(description="仅当用户明确要求撤销已保存修改时，恢复当前用户最近一次对指定发票用途或备注的修改。field 可省略或为 purpose/remarks；程序会检查当前字段并刷新任务。未保存草稿用 update_task_memory 的 remove_draft 处理。")
     def undo_saved_invoice(invoice_id: str, field: str | None = None, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _services(runtime, company_id) as (context, target, _, tasks):
+            if write_restricted(context.current_user_text, [invoice_id], [field] if field else ["purpose", "remarks"],
+                                company_id=target, companies=company_aliases(tasks.database)):
+                return {"status": "write_not_authorized", "summary": "你本轮要求查看或暂不撤销，这张发票没有修改。"}
             return undo_invoice_change(tasks.database, user_id=context.user_id, company_id=target,
                 invoice_id=invoice_id, field=field, session_id=context.session_id, turn_id=context.turn_id)
 
@@ -360,15 +375,32 @@ def make_agent_tools() -> list:
         with _preferences(runtime) as (context, _, manager):
             return _compact_for_user(manager.delete(user_id=context.user_id, preference_id=preference_id, expected_revision=expected_revision))
 
-    @tool(description="统一保存发票用途或备注。changes 只包含需要改变的字段；缺省字段保持不变，空字符串表示明确清空。程序读取当前 revision 并绑定稳定操作记录，成功后刷新相关任务。")
-    def save_invoice(invoice_id: str, changes: dict, month: str | None = None, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+    @tool(description="统一保存发票用途或备注。changes 只包含需要改变的字段；空字符串表示明确清空。用户提出条件时，必须在 expected_fields 中填写用途或备注的期望原值，空值用空字符串；条件不满足不会保存。本轮已读取过的发票使用首次读取的版本。")
+    def save_invoice(invoice_id: str, changes: dict, month: str | None = None, company_id: str | None = None,
+                     expected_fields: dict[str, str | None] | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
         _check_cancel(runtime)
         with _services(runtime, company_id) as (context, target, service, tasks):
+            companies = company_aliases(tasks.database)
+            if write_restricted(context.current_user_text, [invoice_id], list(changes), company_id=target, companies=companies):
+                return {"status": "write_not_authorized", "summary": "你本轮要求查看或暂不保存，这张发票没有修改。"}
             current = service.read_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id, month=month)
             if current.get("status") != "ok":
                 return current
+            conditional, empty_fields = write_conditions(context.current_user_text, [invoice_id], company_id=target, companies=companies)
+            if expected_fields:
+                if set(expected_fields) - {"purpose", "remarks"} or any(value is not None and not isinstance(value, str) for value in expected_fields.values()):
+                    return {"status": "unsupported_precondition", "summary": "当前只能按用途或备注的明确原值判断；发票尚未修改。"}
+            if conditional and (not expected_fields or any(field not in expected_fields or (expected_fields[field] or "").strip() for field in empty_fields)):
+                return {"status": "precondition_required", "summary": "用户对保存提出了条件；请明确期望字段值并核对，发票尚未修改。"}
+            if expected_fields:
+                differences = {field: {"expected": value, "current": current["data"].get(field)}
+                    for field, value in expected_fields.items()
+                    if (current["data"].get(field) or "").strip() != (value or "").strip()}
+                if differences:
+                    return {"status": "precondition_not_met", "summary": "当前内容不满足你提出的保存条件，发票没有修改。", "fields": differences}
             month = month or current["data"]["issue_date"][:7]
-            revision = current["data"]["revision"]
+            observed = context.observed_invoices.get((target, invoice_id))
+            revision = observed["revision"] if observed is not None else current["data"]["revision"]
             payload = {"changes": changes}
             store = AgentStore(context.agent_store_path)
             prior = store.find_operation(session_id=context.session_id, turn_id=context.turn_id, user_id=context.user_id, company_id=target, object_type="invoice", object_id=invoice_id)

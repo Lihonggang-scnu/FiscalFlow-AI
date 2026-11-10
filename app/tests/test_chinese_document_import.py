@@ -73,3 +73,61 @@ def test_same_chinese_invoice_across_sources_is_not_counted_twice(tmp_path):
         conflict = ingest(first, "另一个来源", changed)
         assert conflict["counts"]["conflicts"] == 1 and conflict["counts"]["inserted"] == 0
         assert service.finance_summary(user=accountant, company_id=first["company_id"], period="2026-07")["by_currency"][0]["invoice_total"] == "106.00"
+
+
+def test_code_less_nonunique_invoice_number_is_not_auto_merged(tmp_path):
+    with EnterpriseDatabase(tmp_path / "code-less-identity.sqlite3") as db:
+        admin = create_first_admin(db, username="admin@code-less.test", display_name="管理员", password="test-only-password-2026")
+        service = EnterpriseService(db)
+        company = service.create_company(actor=admin, name="甲公司", currency="CNY")
+        accountant = create_user(db, username="accountant@code-less.test", display_name="会计", password="test-only-password-2026")
+        assign_membership(db, user_id=accountant["user_id"], company_id=company["company_id"], role="accountant")
+        manager = ImportManager(db)
+
+        def ingest(remarks: str) -> dict:
+            content = ("发票号码,开票日期,价税合计,销售方名称,备注\n"
+                       f"01234567,2026-07-06,106.00,样例销方,{remarks}\n").encode("utf-8")
+            preview = manager.preview(user=accountant, company_id=company["company_id"], source_system="ERP",
+                                      filename="ordinary.xlsx.csv", content=content, mapping={})
+            return manager.commit(user=accountant, preview_id=preview["preview_id"])
+
+        first = ingest("首次导入")
+        second = ingest("另一份导出")
+        assert first["counts"]["inserted"] == 1
+        assert second["counts"]["identity_reviews"] == 1
+        assert second["counts"]["duplicate_documents"] == 0
+        assert second["issues"][0]["issue_code"] == "identity_review"
+        assert db.connection.execute("SELECT COUNT(*) FROM invoices WHERE company_id=?", (company["company_id"],)).fetchone()[0] == 1
+
+
+def test_source_status_transition_conflicts_unconfirmed_drafts(tmp_path):
+    with EnterpriseDatabase(tmp_path / "source-status-draft.sqlite3") as db:
+        admin = create_first_admin(db, username="admin@status.test", display_name="管理员", password="test-only-password-2026")
+        service = EnterpriseService(db)
+        company = service.create_company(actor=admin, name="甲公司", currency="CNY")
+        accountant = create_user(db, username="accountant@status.test", display_name="会计", password="test-only-password-2026")
+        assign_membership(db, user_id=accountant["user_id"], company_id=company["company_id"], role="accountant")
+        manager = ImportManager(db)
+
+        def ingest(status: str, remarks: str) -> dict:
+            content = ("source_invoice_id,issue_date,amount,invoice_status,remarks\n"
+                       f"SRC-STATUS,2026-07-06,106.00,{status},{remarks}\n").encode("utf-8")
+            preview = manager.preview(user=accountant, company_id=company["company_id"], source_system="ERP",
+                                      filename="status.csv", content=content, mapping={})
+            return manager.commit(user=accountant, preview_id=preview["preview_id"])
+
+        assert ingest("active", "初始备注")["counts"]["inserted"] == 1
+        invoice_id = db.connection.execute("SELECT invoice_id FROM enterprise_invoice_links WHERE company_id=?", (company["company_id"],)).fetchone()[0]
+        task = service._ensure_task(company_id=company["company_id"], period="2026-07", user_id=accountant["user_id"],
+                                    invoice_ids=[invoice_id], origin="test")
+        draft = service.create_conversation_draft(user=accountant, task_id=task["task_id"], invoice_id=invoice_id,
+                                                   purpose="办公采购", remarks=None, source_turn_id="test-status-turn",
+                                                   user_text="用于办公采购")
+        draft_id = draft["draft"]["draft_id"]
+
+        ingest("active", "普通来源版本变化")
+        assert db.connection.execute("SELECT status FROM enterprise_drafts WHERE draft_id=?", (draft_id,)).fetchone()[0] == "proposed"
+        ingest("void", "普通来源版本变化")
+        assert db.connection.execute("SELECT status FROM enterprise_drafts WHERE draft_id=?", (draft_id,)).fetchone()[0] == "conflict"
+        ingest("active", "普通来源版本变化")
+        assert db.connection.execute("SELECT status FROM enterprise_drafts WHERE draft_id=?", (draft_id,)).fetchone()[0] == "conflict"

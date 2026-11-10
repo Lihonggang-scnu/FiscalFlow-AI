@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "id": "readonly_query",
+      "checks": {
+        "runtime_ok": false,
+        "amount": false,
+        "missing_set": null,
+        "no_write": true
+      },
+      "outcome": "failed",
+      "passed": false,
+      "turns": [
+        {
+          "request": "我只需要查看甲企业2026年9月发票总额和缺用途发票，不要修改任何内容。",
+          "reply": "",
+          "status": "error",
+          "tool_calls": []
+        }
+      ]
+    }
+  ],
+  "passed": false,
+  "model_calls": 1,
+  "estimated_increment_cny": 0.00753
+}

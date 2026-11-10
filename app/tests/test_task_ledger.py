@@ -190,10 +190,12 @@ def test_memory_can_be_read_by_recorded_and_effective_time(business):
         ledger = TaskLedger(db)
         first_id = ledger.append(user_id="U001", company_id="C001", session_id="s", turn_id="t1", kind="note_set",
             payload={"key": "安排", "value": "先办理甲票"}, occurred_at="2026-08-01T00:00:00+08:00")
-        first_time = next(event["recorded_at"] for event in ledger.events(user_id="U001", company_id="C001") if event["event_id"] == first_id)
+        first_time = "2026-10-01T00:00:00.000001+00:00"
+        db.connection.execute("UPDATE task_ledger_events SET recorded_at=? WHERE event_id=?", (first_time, first_id))
         second_id = ledger.append(user_id="U001", company_id="C001", session_id="s", turn_id="t2", kind="note_set",
             payload={"key": "安排", "value": "改为先办理乙票"}, occurred_at="2026-09-01T00:00:00+08:00")
-        second_time = next(event["recorded_at"] for event in ledger.events(user_id="U001", company_id="C001") if event["event_id"] == second_id)
+        second_time = "2026-10-01T00:00:00.000002+00:00"
+        db.connection.execute("UPDATE task_ledger_events SET recorded_at=? WHERE event_id=?", (second_time, second_id))
         old_knowledge = ledger.memory(user_id="U001", company_id="C001", as_of_recorded=first_time, valid_at="2026-09-15")
         earlier_period = ledger.memory(user_id="U001", company_id="C001", as_of_recorded=second_time, valid_at="2026-08-15")
         corrected = ledger.memory(user_id="U001", company_id="C001", as_of_recorded=second_time, valid_at="2026-09-15")
@@ -319,6 +321,7 @@ def test_agent_question_planner_uses_drafts_and_deferred_state(business, tmp_pat
             AIMessage(content="F006 的用途是什么？"),
         ])
         result = runtime.run_turn(session_id="questions", user_id="U001", company_id="C001", message="继续办理，问我还需要的信息", model=model)
+        assert result["status"] == "ok", result
         tool_results = [message["data"]["content"] for message in result["messages"] if message["type"] == "tool" and message["data"].get("name") == "plan_followup_questions"]
         question = json.loads(tool_results[-1])["questions"][0]
         assert question["coverage_slots"] == [{"target_id": "F006", "slot": "purpose"}]

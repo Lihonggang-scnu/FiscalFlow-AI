@@ -19,9 +19,10 @@ from pydantic import BaseModel, Field
 from ..agent import AgentRuntime, BatchGuardMiddleware, BudgetMiddleware, CancellationMiddleware
 from ..agent_store import AgentStore
 from ..agent_tools import AgentContext, _check_cancel
-from ..context_compiler import compile_context, estimated_tokens
+from ..context_compiler import model_context
 from ..errors import SessionOwnershipError, TaxHarnessError
 from ..services import TaxService
+from ..turn_intent import company_aliases, write_conditions, write_restricted
 from .service import EnterpriseService
 from .storage import EnterpriseDatabase
 
@@ -96,7 +97,7 @@ def make_enterprise_tools() -> list:
     def enterprise_correct_draft(draft_id: str, expected_draft_revision: int, purpose: str | None = None,
                                  remarks: str | None = None, invoice_id: str | None = None,
                                  company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
-        with _service(runtime, company_id) as (_, target, database, actor, service):
+        with _service(runtime, company_id) as (context, target, database, actor, service):
             draft = database.connection.execute("SELECT * FROM enterprise_drafts WHERE draft_id=? AND company_id=?", (draft_id, target)).fetchone()
             if draft is None:
                 raise ValueError("当前企业没有该草稿。")
@@ -105,20 +106,47 @@ def make_enterprise_tools() -> list:
             updated = service.update_draft(user=actor, draft_id=draft_id, invoice_id=invoice_id or draft["invoice_id"],
                 purpose=draft["proposed_purpose"] if purpose is None else purpose,
                 remarks=draft["proposed_remarks"] if remarks is None else remarks,
-                expected_draft_revision=expected_draft_revision)
+                expected_draft_revision=expected_draft_revision, source_text=context.current_user_text, source_turn_id=context.turn_id)
             return {"status": "ok", "draft": service._decode_draft(updated), "invoice_written": False,
                     "summary": "草稿已更正，发票尚未修改。"}
 
     @tool(description="会计明确要求保存或确认时，按草稿编号和最新 draft_revision 逐项确认；写入后仍按企业流程等待复核。")
     def enterprise_confirm_drafts(drafts: list[DraftReference], company_id: str | None = None,
                                   runtime: ToolRuntime[AgentContext] = None) -> dict:
-        with _service(runtime, company_id) as (_, target, database, actor, service):
+        with _service(runtime, company_id) as (context, target, database, actor, service):
             ids = [draft.draft_id for draft in drafts]
+            allowed = []
+            blocked = []
+            conditions = {}
+            companies = company_aliases(database)
             for draft_id in ids:
-                if database.connection.execute("SELECT 1 FROM enterprise_drafts WHERE draft_id=? AND company_id=?", (draft_id, target)).fetchone() is None:
+                row = database.connection.execute("""SELECT d.invoice_id,d.proposed_purpose,d.proposed_remarks,l.source_invoice_id
+                    FROM enterprise_drafts d LEFT JOIN enterprise_invoice_links l USING(company_id,invoice_id)
+                    WHERE d.draft_id=? AND d.company_id=? LIMIT 1""", (draft_id, target)).fetchone()
+                if row is None:
                     raise ValueError("所选草稿不属于当前企业。")
-            return service.confirm_drafts(user=actor, draft_ids=ids,
-                expected_draft_revisions={draft.draft_id: draft.draft_revision for draft in drafts})
+                fields = [field for field in ("purpose", "remarks") if row["proposed_" + field] is not None]
+                identifiers = [row["invoice_id"], row["source_invoice_id"]]
+                conditional, empty_fields = write_conditions(context.current_user_text, identifiers, company_id=target, companies=companies)
+                if write_restricted(context.current_user_text, identifiers, fields, company_id=target, companies=companies):
+                    blocked.append({"draft_id": draft_id, "status": "write_not_authorized", "summary": "你本轮要求查看或暂不保存，草稿尚未写入。"})
+                elif conditional and not empty_fields:
+                    blocked.append({"draft_id": draft_id, "status": "precondition_required", "summary": "请明确需要核对的用途或备注条件，草稿尚未写入。"})
+                else:
+                    allowed.append(draft_id)
+                    if conditional:
+                        conditions[draft_id] = {field: "" for field in empty_fields}
+            result = service.confirm_drafts(user=actor, draft_ids=allowed,
+                expected_draft_revisions={draft.draft_id: draft.draft_revision for draft in drafts}, expected_fields_by_draft=conditions)
+            if result["items"] and not result["confirmed"] and all(item["status"] == "precondition_not_met" for item in result["items"]):
+                result["status"] = "precondition_not_met"
+                result["summary"] = "当前内容不满足你提出的保存条件，发票没有修改。"
+            result["items"].extend(blocked)
+            result["failed"] += len(blocked)
+            if blocked:
+                result["status"] = "partial" if result["confirmed"] else blocked[0]["status"]
+                result["summary"] = blocked[0]["summary"] if len(blocked) == 1 else "部分草稿的保存要求尚未满足。"
+            return result
 
     @tool(description="查询当前企业指定期间的金额汇总；多币种分别列示，不自动折算。")
     def enterprise_finance_summary(period: str, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
@@ -187,10 +215,8 @@ class EnterpriseProgramContext(AgentMiddleware):
         from langchain_core.utils.function_calling import convert_to_openai_tool
         tools = [convert_to_openai_tool(item) for item in request.tools]
         base = request.system_message.content if request.system_message else ""
-        reserved = estimated_tokens({"system": base, "state": snapshot, "tools": tools})
-        compiled, manifest = compile_context(request.messages, token_budget=context.context_budget_tokens, reserved_tokens=reserved)
-        snapshot["context_manifest"] = manifest
-        system = base + "\n\n<enterprise_work_context>" + json.dumps(snapshot, ensure_ascii=False) + "</enterprise_work_context>"
+        system, compiled = model_context(base, snapshot, tools, request.messages,
+            token_budget=context.context_budget_tokens, tag="enterprise_work_context")
         return handler(request.override(system_message=SystemMessage(content=system), messages=compiled))
 
 

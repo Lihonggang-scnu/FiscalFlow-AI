@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "id": "correct_invoice",
+      "checks": {
+        "runtime_ok": true,
+        "correct_invoice_saved": true,
+        "original_invoice_untouched": true,
+        "one_write": true
+      },
+      "outcome": "passed",
+      "passed": true,
+      "turns": [
+        {
+          "request": "甲企业2026年9月，我刚才说错票号了：先说F002，实际是F003用于寄送客户验收文件；只保存F003的用途，F002不要更改。",
+          "reply": "已按更正后的票号办理：\n\n- 甲企业（比赛模拟）2026年9月发票 F003（晓风快递，快递服务，300.00元）：用途已保存为“寄送客户验收文件”。\n- F002（书林图文，复印纸、打印服务，800.00元）：未做任何更改，用途仍为空。\n\n如需为 F002 补用途，请告诉我它实际用于什么业务。",
+          "status": "ok",
+          "tool_calls": [
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "company_id": "C001"
+              },
+              "id": "call_00_BdeNj56bVpwwTCXVhRpA5970",
+              "type": "tool_call"
+            },
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F002",
+                "month": "2026-09",
+                "company_id": "C001"
+              },
+              "id": "call_01_Zj8HR1lCcfH5PiSbYqyJ5645",
+              "type": "tool_call"
+            },
+            {
+              "name": "save_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "company_id": "C001",
+                "changes": {
+                  "purpose": "寄送客户验收文件"
+                }
+              },
+              "id": "call_00_JUHzxnMvISb8SozV4MMO9751",
+              "type": "tool_call"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "model_calls": 3,
+  "estimated_increment_cny": 0.023426
+}

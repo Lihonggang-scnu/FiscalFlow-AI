@@ -1,0 +1,36 @@
+........................................................................ [ 35%]
+........................................................................ [ 71%]
+.....................F....................................               [100%]
+================================== FAILURES ===================================
+___________ test_memory_can_be_read_by_recorded_and_effective_time ____________
+
+business = WindowsPath('C:/Users/Administrator/AppData/Local/Temp/pytest-of-Administrator/pytest-2692/test_memory_can_be_read_by_rec0/business.sqlite3')
+
+    def test_memory_can_be_read_by_recorded_and_effective_time(business):
+        with TaxDatabase(business) as db:
+            ledger = TaskLedger(db)
+            first_id = ledger.append(user_id="U001", company_id="C001", session_id="s", turn_id="t1", kind="note_set",
+                payload={"key": "安排", "value": "先办理甲票"}, occurred_at="2026-08-01T00:00:00+08:00")
+            first_time = next(event["recorded_at"] for event in ledger.events(user_id="U001", company_id="C001") if event["event_id"] == first_id)
+            second_id = ledger.append(user_id="U001", company_id="C001", session_id="s", turn_id="t2", kind="note_set",
+                payload={"key": "安排", "value": "改为先办理乙票"}, occurred_at="2026-09-01T00:00:00+08:00")
+            second_time = next(event["recorded_at"] for event in ledger.events(user_id="U001", company_id="C001") if event["event_id"] == second_id)
+            old_knowledge = ledger.memory(user_id="U001", company_id="C001", as_of_recorded=first_time, valid_at="2026-09-15")
+            earlier_period = ledger.memory(user_id="U001", company_id="C001", as_of_recorded=second_time, valid_at="2026-08-15")
+            corrected = ledger.memory(user_id="U001", company_id="C001", as_of_recorded=second_time, valid_at="2026-09-15")
+>           assert old_knowledge["notes"]["安排"]["value"] == "先办理甲票"
+E           AssertionError: assert '改为先办理乙票' == '先办理甲票'
+E             
+E             - 先办理甲票
+E             + 改为先办理乙票
+
+tests\test_task_ledger.py:200: AssertionError
+============================== warnings summary ===============================
+tests/test_chainlit_app.py::test_ui_defaults_are_project_relative_and_user_company_options_are_acl_scoped
+  E:\AI-Chem\ChemIntent\.venv-cpython\Lib\site-packages\traceloop\sdk\prompts\model.py:12: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.14/migration/
+    class RegistryObjectBaseModel(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_task_ledger.py::test_memory_can_be_read_by_recorded_and_effective_time
+1 failed, 201 passed, 1 warning in 45.61s

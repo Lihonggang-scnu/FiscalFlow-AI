@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, Request, Response
 
-from .storage import EnterpriseDatabase, hash_token, issue_session, utc_now
+from .storage import EnterpriseDatabase, hash_token, issue_session, session_csrf, utc_now
 
 
 SESSION_COOKIE = "tax_enterprise_session"
@@ -145,9 +145,10 @@ def revoke_session(database: EnterpriseDatabase, request: Request) -> None:
         database.connection.execute("UPDATE enterprise_sessions SET revoked_at=? WHERE token_hash=? AND revoked_at IS NULL", (utc_now(), hash_token(token)))
 
 
-def refresh_csrf(database: EnterpriseDatabase, session: sqlite3.Row) -> str:
-    csrf = secrets.token_urlsafe(24)
-    database.connection.execute("UPDATE enterprise_sessions SET csrf_hash=? WHERE token_hash=?", (hash_token(csrf), session["token_hash"]))
+def refresh_csrf(database: EnterpriseDatabase, session: sqlite3.Row, request: Request) -> str:
+    csrf = session_csrf(request.cookies[SESSION_COOKIE])
+    if not hmac.compare_digest(hash_token(csrf), session["csrf_hash"]):
+        database.connection.execute("UPDATE enterprise_sessions SET csrf_hash=? WHERE token_hash=?", (hash_token(csrf), session["token_hash"]))
     return csrf
 
 

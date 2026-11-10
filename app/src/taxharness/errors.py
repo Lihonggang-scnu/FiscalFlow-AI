@@ -51,6 +51,10 @@ class BudgetExceeded(TaxHarnessError):
     code = "budget_exceeded"
 
 
+class ContextBudgetExceeded(TaxHarnessError):
+    code = "context_budget_exceeded"
+
+
 class LiveModelDisabled(TaxHarnessError):
     code = "live_model_disabled"
 

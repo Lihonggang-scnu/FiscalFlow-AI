@@ -1109,7 +1109,9 @@ async def workspace_open_invoice(action: cl.Action) -> None:
     task = next((item for item in state.workspace_data.get("tasks", []) if item["task_id"] == task_id), None)
     valid_invoice = isinstance(invoice_id, str) and invoice_id in allowed_invoices
     if task_id is not None:
-        valid_invoice = valid_invoice and task is not None and invoice_id in task.get("target_invoice_ids", [])
+        frontier = state.workspace_data.get("frontier") or {}
+        tracked = (frontier.get("progress") or {}).get("tracked_targets", []) if frontier.get("task_id") == task_id else []
+        valid_invoice = valid_invoice and task is not None and invoice_id in set(task.get("target_invoice_ids", [])) | set(tracked)
     state.workspace_task_id = str(task["task_id"]) if task else None
     state.workspace_invoice_id = invoice_id if valid_invoice else None
     state.context_invoice_id = state.workspace_invoice_id

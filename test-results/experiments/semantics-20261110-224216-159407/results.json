@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "id": "same_id_two_companies",
+      "checks": {
+        "runtime_ok": false,
+        "company_amount_mapping": null,
+        "company_kept": false,
+        "no_write": true
+      },
+      "outcome": "failed",
+      "passed": false,
+      "turns": [
+        {
+          "request": "只读核对2026年9月甲乙两家企业的同号F002：各自金额是多少？当前办理企业保持甲企业。",
+          "reply": "",
+          "status": "error",
+          "tool_calls": []
+        }
+      ]
+    }
+  ],
+  "passed": false,
+  "model_calls": 1,
+  "estimated_increment_cny": 0.008165
+}

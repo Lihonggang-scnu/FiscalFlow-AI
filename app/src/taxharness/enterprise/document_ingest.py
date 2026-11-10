@@ -44,8 +44,11 @@ def _invoice_xml(content: bytes) -> dict[str, str] | None:
         tag = str(element.tag).split("}")[-1].casefold()
         if element.text and element.text.strip():
             values.setdefault(tag, []).append(element.text.strip())
-    number = _field(values, "InvoiceNumber", "NumberOfInvoice", "UniqueCodeOfInvoice", "Fphm", "发票号码")
-    if not number:
+    number = _field(values, "InvoiceNumber", "NumberOfInvoice", "Fphm", "发票号码")
+    unique_code = _field(values, "UniqueCodeOfInvoice")
+    if not number and unique_code.isdigit() and len(unique_code) == 20:
+        number = unique_code
+    if not number and not unique_code:
         return None
     code = _field(values, "InvoiceCode", "CodeOfInvoice", "Fpdm", "发票代码")
     invoice_type = _field(values, "InvoiceType", "TypeOfInvoice", "Fplx", "发票类型")
@@ -70,9 +73,11 @@ def _invoice_xml(content: bytes) -> dict[str, str] | None:
     item = _field(values, "ItemName", "NameOfTaxableGoodsOrServices", "Xmmc", "项目名称", "货物或应税劳务名称")
     raw_currency = _field(values, "Currency", "币种") or "CNY"
     currency = "CNY" if raw_currency in {"人民币", "RMB", "¥", "￥"} else raw_currency.upper()
-    result = {"source_invoice_id": f"{code}-{number}" if code else number, "issue_date": issue_date,
+    source_invoice_id = unique_code if unique_code.isdigit() and len(unique_code) == 20 else (f"{code}-{number}" if code and number else number or unique_code)
+    result = {"source_invoice_id": source_invoice_id, "issue_date": issue_date,
             "amount": format(total_value, "f"), "currency": currency, "seller_name": seller, "project_name": item,
-            "invoice_number": number, "invoice_code": code, "seller_tax_id": seller_tax_id,
+            "invoice_number": number, "invoice_code": code, "invoice_unique_code": unique_code,
+            "invoice_type": invoice_type, "seller_tax_id": seller_tax_id,
             "buyer_name": buyer, "buyer_tax_id": buyer_tax_id, "net_amount": net, "tax_amount": tax,
             "accounting_period": _field(values, "AccountingPeriod", "会计期间"),
             "booked_status": _field(values, "WhetherEinvoiceHasBeenBooked", "WhetherInvoiceHasBeenBooked"),

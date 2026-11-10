@@ -168,6 +168,44 @@ def compare_frontiers(before: dict[str, Any] | None, after: dict[str, Any]) -> d
     }
 
 
+def _task_progress(task: dict[str, Any], events: list[dict[str, Any]], invoices: list[dict[str, Any]],
+                   memory: dict[str, Any]) -> dict[str, Any]:
+    initial: list[str] = []
+    tracked: list[str] = []
+    removed_by_scope: set[str] = set()
+    for event in events:
+        if event.get("task_id") != task["task_id"] or event["kind"] not in {"task_created", "task_changed", "task_imported"}:
+            continue
+        after = event["payload"].get("after", {})
+        before = event["payload"].get("before", {})
+        targets = list(after.get("target_invoice_ids", []))
+        if not tracked or (before and before.get("month") != after.get("month")):
+            initial, tracked, removed_by_scope = list(targets), list(targets), set()
+        else:
+            if after.get("scope") == "selected":
+                removed_by_scope.update(set(before.get("target_invoice_ids", [])) - set(targets))
+            removed_by_scope.difference_update(targets)
+            tracked.extend(invoice_id for invoice_id in targets if invoice_id not in tracked)
+    if not tracked:
+        initial = tracked = list(task.get("target_invoice_ids", []))
+    by_id = {invoice["invoice_id"]: invoice for invoice in invoices}
+    current_targets = set(task.get("target_invoice_ids", []))
+    outstanding = set(task.get("pending_invoice_ids", []))
+    corrections = {item["invoice_id"] for item in memory["drafts"].values()
+                   if item["invoice_id"] in by_id and _clean_text(item.get("value")) != _clean_text(by_id[item["invoice_id"]].get(item["field"]))}
+    completed = [invoice_id for invoice_id in tracked if invoice_id not in removed_by_scope and invoice_id in by_id
+                 and _clean_text(by_id[invoice_id].get("purpose")) and invoice_id not in outstanding and invoice_id not in corrections]
+    removed_by_rule = [invoice_id for invoice_id in tracked if invoice_id not in current_targets and invoice_id not in removed_by_scope
+                       and invoice_id in by_id and not _clean_text(by_id[invoice_id].get("purpose"))]
+    remaining = [invoice_id for invoice_id in tracked if invoice_id not in removed_by_scope and
+                 (invoice_id in outstanding or invoice_id in corrections)]
+    return {"initial_targets": initial, "tracked_targets": tracked,
+            "added_targets": [invoice_id for invoice_id in tracked if invoice_id not in initial],
+            "completed": completed, "remaining": remaining,
+            "waiting": [invoice_id for invoice_id in remaining if invoice_id in memory["deferred"]],
+            "removed_by_rule": removed_by_rule, "removed_by_scope": [invoice_id for invoice_id in tracked if invoice_id in removed_by_scope]}
+
+
 class TaskLedger:
     def __init__(self, database: TaxDatabase):
         self.database = database
@@ -342,6 +380,8 @@ class TaskLedger:
                 work["rule"] = {"status": error.code, "summary": str(error)}
             rows = self.service.query_invoice_summary(user_id=user_id, company_id=company_id, month=task["month"])["data"]["invoices"]
             work["invoice_revisions"] = {row["invoice_id"]: row["revision"] for row in rows if row["invoice_id"] in targets}
+            work["progress"] = _task_progress(task, self.events(user_id=user_id, company_id=company_id,
+                valid_at=datetime.now(UTC).isoformat()), rows, memory)
         if warning:
             work["warning"] = warning
         for invoice_id in targets:

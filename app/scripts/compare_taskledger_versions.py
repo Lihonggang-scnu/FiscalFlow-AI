@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 UPGRADE_APP = Path(__file__).resolve().parents[1]
 UPGRADE = UPGRADE_APP.parent
 PROJECT = UPGRADE.parents[1]
-BASELINE_APP = PROJECT / "artifacts" / "ui_three_views_candidate_20261028" / "app"
+BASELINE_APP = UPGRADE / "baseline" / "app"
 
 
 def _invoice(database: Path, company: str, invoice: str) -> tuple:
@@ -58,12 +58,13 @@ def main() -> int:
 
     if _peak_window(datetime.now(ZoneInfo("Asia/Shanghai"))):
         raise SystemExit("当前是高峰时段；请在闲时运行比较实验。")
-    budget = json.loads((UPGRADE / "budget.json").read_text(encoding="utf-8"))
+    budget = json.loads(Path(os.getenv("TAXHARNESS_UPGRADE_BUDGET", str(UPGRADE / "budget.json"))).read_text(encoding="utf-8"))
     if budget["status"] != "active" or budget["new_limit_cny"] != 10 or not budget["offpeak_only"]:
         raise SystemExit("TaskLedger 预算配置不可用。")
     ledger = Path(budget["shared_ledger"])
     before_count, before_total = _budget_total(ledger)
-    run_root = UPGRADE / "experiments" / "comparison" / (args.version + "-" + args.case + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
+    experiments = Path(os.getenv("TAXHARNESS_EXPERIMENTS_DIR", str(UPGRADE / "experiments")))
+    run_root = experiments / "comparison" / (args.version + "-" + args.case + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
     run_root.mkdir(parents=True)
     database = run_root / "business.sqlite3"
     initialize_database(database, app / "data/02_示例数据.xlsx", app / "data/03_业务规则.docx.txt")

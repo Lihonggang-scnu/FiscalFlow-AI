@@ -1,0 +1,39 @@
+........................................................................ [ 35%]
+........................................................................ [ 71%]
+..........................F..............................                [100%]
+================================== FAILURES ===================================
+_________ test_agent_question_planner_uses_drafts_and_deferred_state __________
+
+business = WindowsPath('C:/Users/Administrator/AppData/Local/Temp/pytest-of-Administrator/pytest-2686/test_agent_question_planner_us0/business.sqlite3')
+tmp_path = WindowsPath('C:/Users/Administrator/AppData/Local/Temp/pytest-of-Administrator/pytest-2686/test_agent_question_planner_us0')
+
+    def test_agent_question_planner_uses_drafts_and_deferred_state(business, tmp_path):
+        runtime = AgentRuntime(database_path=business, agent_store_path=tmp_path / "agent.sqlite3", checkpoint_path=tmp_path / "checkpoint.sqlite3")
+        try:
+            with TaxDatabase(business) as db:
+                TaskManager(db).create_task(user_id="U001", company_id="C001", month="2026-09", scope="selected", invoice_ids=["F003", "F006", "F009"])
+                TaskLedger(db).apply(user_id="U001", company_id="C001", session_id="earlier", turn_id="t1", operations=[
+                    {"action": "draft", "invoice_id": "F003", "field": "purpose", "value": "寄送验收文件", "save_requested": False},
+                    {"action": "defer", "invoice_id": "F009", "reason": "等经办人"},
+                ])
+            candidates = [{"id": "batch", "text": "请分别说明三张票的用途。", "targets": ["F003", "F006", "F009"],
+                           "required_slots": {"F003": ["purpose"], "F006": ["purpose"], "F009": ["purpose"]}, "burden": 2, "priority": 5}]
+            model = ToolFake(responses=[
+                AIMessage(content="", tool_calls=[{"name": "plan_followup_questions", "args": {"candidates": candidates}, "id": "questions", "type": "tool_call"}]),
+                AIMessage(content="F006 的用途是什么？"),
+            ])
+            result = runtime.run_turn(session_id="questions", user_id="U001", company_id="C001", message="继续办理，问我还需要的信息", model=model)
+>           tool_results = [message["data"]["content"] for message in result["messages"] if message["type"] == "tool" and message["data"].get("name") == "plan_followup_questions"]
+                                                                      ^^^^^^^^^^^^^^^^^^
+E           KeyError: 'messages'
+
+tests\test_task_ledger.py:322: KeyError
+============================== warnings summary ===============================
+tests/test_chainlit_app.py::test_ui_defaults_are_project_relative_and_user_company_options_are_acl_scoped
+  E:\AI-Chem\ChemIntent\.venv-cpython\Lib\site-packages\traceloop\sdk\prompts\model.py:12: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.14/migration/
+    class RegistryObjectBaseModel(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_task_ledger.py::test_agent_question_planner_uses_drafts_and_deferred_state
+1 failed, 200 passed, 1 warning in 46.35s

@@ -57,7 +57,7 @@ def test_source_void_is_excluded_and_old_draft_cannot_be_confirmed(tmp_path):
         assert service.list_missing(user=accountant, company_id=company["company_id"], period="2026-10")["missing_count"] == 1
         projection = project_enterprise_work(db, user=accountant, task_id=task_id)
         assert projection["excluded"] == [by_source["A1"]]
-        denied = service.confirm_drafts(user=accountant, draft_ids=[drafts[0]["draft_id"]])
+        denied = service.confirm_drafts(user=accountant, draft_ids=[drafts[0]["draft_id"]], expected_draft_revisions={drafts[0]["draft_id"]: drafts[0]["draft_revision"]})
         assert denied["items"][0]["status"] == "void_invoice"
         assert db.connection.execute("SELECT purpose FROM invoices WHERE invoice_id=?", (by_source["A1"],)).fetchone()[0] is None
 
@@ -66,8 +66,11 @@ def test_source_void_is_excluded_and_old_draft_cannot_be_confirmed(tmp_path):
         rows[0][-1] = "issued"
         import_rows(_csv(rows))
         assert service.finance_summary(user=accountant, company_id=company["company_id"], period="2026-10")["invoice_count"] == 2
-        conflict = service.confirm_drafts(user=accountant, draft_ids=[drafts[0]["draft_id"]])
-        assert conflict["items"][0]["status"] == "revision_conflict"
+        conflict = service.confirm_drafts(user=accountant, draft_ids=[drafts[0]["draft_id"]], expected_draft_revisions={drafts[0]["draft_id"]: drafts[0]["draft_revision"]})
+        assert conflict["items"][0]["status"] == "draft_conflict"
+        latest = db.connection.execute("SELECT draft_revision FROM enterprise_drafts WHERE draft_id=?", (drafts[0]["draft_id"],)).fetchone()[0]
+        recheck = service.confirm_drafts(user=accountant, draft_ids=[drafts[0]["draft_id"]], expected_draft_revisions={drafts[0]["draft_id"]: latest})
+        assert recheck["items"][0]["status"] == "revision_conflict"
 
 
 def test_red_flush_status_is_not_silently_treated_as_void():

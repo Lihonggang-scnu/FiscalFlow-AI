@@ -167,6 +167,7 @@ def generate_reply_drafts(
     if len(items) > 40:
         raise ValueError("模型返回草稿数量超过上限。")
     source_revisions = {row["invoice_id"]: int(row["revision"]) for row in invoices}
-    drafts = service.save_drafts(user=user, response_id=response_id, items=items, source_revisions=source_revisions)
+    source_values = {row["invoice_id"]: {"purpose": row["purpose"], "remarks": row["remarks"]} for row in invoices}
+    drafts = service.save_drafts(user=user, response_id=response_id, items=items, source_revisions=source_revisions, source_values=source_values)
     return {"status": "ok", "response_id": response_id, "task_id": response["task_id"], "late": bool(response["late"]), "draft_count": len(drafts), "drafts": drafts}
 

@@ -11,8 +11,7 @@ from taxharness.agent_store import AgentStore
 
 
 APP = Path(__file__).resolve().parents[1]
-PROJECT = APP.parent.parents[1]
-BASELINE = PROJECT / "artifacts/ui_three_views_candidate_20261028/app"
+BASELINE = APP.parent / "baseline/app"
 
 
 @pytest.mark.parametrize("app", [BASELINE, APP], ids=["baseline", "upgrade"])

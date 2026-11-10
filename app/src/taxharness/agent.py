@@ -18,8 +18,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from .agent_store import AgentStore
 from .agent_tools import AgentContext, make_agent_tools
-from .context_compiler import compile_context, estimated_tokens, pinned_turn_ids
-from .errors import LiveModelDisabled, SessionOwnershipError, TaxHarnessError, TurnCancelled
+from .context_compiler import estimated_tokens, model_context, pinned_turn_ids
+from .errors import ContextBudgetExceeded, LiveModelDisabled, SessionOwnershipError, TaxHarnessError, TurnCancelled
 from .experience import matching_strategies
 from .preferences import PreferenceManager, PreferenceStore, default_preference_path, preference_catalog
 from .progress_feedback import progress_feedback
@@ -52,6 +52,8 @@ SYSTEM_PROMPT = """你是财税办理助手。
 如果 progress_feedback 显示同一操作在本轮反复得到相同结果，分析缺少的信息并调整方法；用户明确要求再次核对时仍应重新查询。
 程序上下文中的 attachment_observations 是上传票据的识别结果，可能有看不清的字段；结合用户文字和当前业务查询处理，不要根据票面推测用途或付款状态。
 若程序上下文含 recovered_operations，其中 result 是已查到的历史操作回执，current 是重新读取的当前数据；两者可能不同。回答历史保存时依据回执，回答当前状态时依据 current，不把当前值相同当作历史提交的唯一证明。
+程序上下文中的 earlier_turn_tool_results 是本轮较早的工具结果摘要，status 和保存回执仍然有效；完整记录保留在历史中。
+工具结果若标记 details_shortened，所需票据详情可以用 read_invoice 重新读取。
 从用户反馈或实际办理经历中发现可复用的方法时，可以提出候选策略；用户明确要求采用时可启用。当前上下文的 task_strategies 是适用于本轮的处理建议，不能改变业务规则、权限或用户本轮要求。
 回答中说明实际企业、月份、规则依据、已完成和未完成事项；工具失败不能说成成功。
 面向普通业务用户时先给本次实际结果、必要依据和剩余事项；不要默认输出 task_id、revision、操作编号、rechecked、文件路径或原始 JSON。只有用户明确询问技术细节时才展开这些内部字段；不要重复解释与本次请求无关的票或规则。
@@ -103,6 +105,31 @@ def _sanitize_reply(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
+def _completed_writes(messages: list[Any]) -> list[dict[str, Any]]:
+    start = next((index for index in range(len(messages) - 1, -1, -1) if isinstance(messages[index], HumanMessage)), 0)
+    completed = []
+    for message in messages[start:]:
+        if not isinstance(message, ToolMessage) or message.name not in {"save_invoice", "enterprise_confirm_drafts"}:
+            continue
+        try:
+            receipt = json.loads(message.content)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        items = receipt.get("items", []) if message.name == "enterprise_confirm_drafts" else [receipt]
+        for item in items:
+            if item.get("status") not in {"committed", "no_change", "duplicate"}:
+                continue
+            original = item.get("result", item)
+            after = original.get("after") or original.get("current") or {}
+            before = original.get("before") or {}
+            invoice_id = item.get("invoice_id") or after.get("invoice_id") or item.get("draft_id")
+            if invoice_id:
+                completed.append({"invoice_id": str(invoice_id), "company_id": after.get("company_id"),
+                                  "status": item["status"], "changes": {field: after.get(field) for field in ("purpose", "remarks")
+                                  if before.get(field) != after.get(field)}})
+    return completed
+
+
 class BatchGuardMiddleware(AgentMiddleware):
     """Ask the model to identify company scope for work batched with a switch."""
 
@@ -117,6 +144,11 @@ class BatchGuardMiddleware(AgentMiddleware):
         writes = {"save_invoice", "undo_saved_invoice", "task_create", "task_correct", "task_complete", "task_cancel",
                   "task_delete", "update_task_memory", "propose_task_strategy", "set_task_strategy",
                   "enterprise_create_draft", "enterprise_correct_draft", "enterprise_confirm_drafts"}
+        if name == "save_invoice" and any(call.get("name") == "read_invoice" and
+                call.get("args", {}).get("invoice_id") == request.tool_call.get("args", {}).get("invoice_id")
+                for call in calls):
+            return ToolMessage(content=json.dumps({"status": "ordered_actions_needed", "summary": "请先等待发票读取结果，再按该结果决定是否保存。"}, ensure_ascii=False),
+                               tool_call_id=request.tool_call["id"], name=name)
         scoped_tools = {"query_finance", "read_invoice", "read_rule", "list_missing_purposes", "task_create",
                         "task_list", "task_get", "task_resume", "task_correct", "task_complete", "task_cancel",
                         "task_delete", "update_task_memory", "inspect_task_frontier", "recall_task_turn", "recall_task_state", "plan_followup_questions", "list_task_experiences", "propose_task_strategy", "set_task_strategy", "preview_rule_impact", "undo_saved_invoice", "save_invoice",
@@ -197,6 +229,11 @@ class ProgramContextMiddleware(AgentMiddleware):
             ledger = TaskLedger(database)
             snapshot["task_frontier"] = ledger.frontier(user_id=context.user_id, company_id=context.current_company_id,
                 session_id=context.session_id, turn_id=context.turn_id)
+            frontier = snapshot["task_frontier"]["frontier"]
+            scope = (context.user_id, context.current_company_id, frontier.get("task_id"), frontier.get("month"))
+            if scope != context.last_frontier_scope:
+                context.last_frontier_scope = scope
+                context.last_frontier_diff = None
             diff = snapshot["task_frontier"]["diff"]
             if diff.get("added_targets") or diff.get("removed_targets") or diff.get("changes"):
                 context.last_frontier_diff = diff
@@ -232,11 +269,8 @@ class ProgramContextMiddleware(AgentMiddleware):
         from langchain_core.utils.function_calling import convert_to_openai_tool
         tools = [convert_to_openai_tool(tool) for tool in request.tools]
         budget = int(os.getenv("TAXHARNESS_CONTEXT_BUDGET_TOKENS", str(context.context_budget_tokens)))
-        reserved = estimated_tokens({"system": base, "state": snapshot, "tools": tools})
-        compiled, manifest = compile_context(request.messages, token_budget=budget, reserved_tokens=reserved,
-                                             pinned=pinned_turn_ids(snapshot["task_memory"]))
-        snapshot["context_manifest"] = manifest
-        system = base + "\n\n<taxharness_program_context>" + json.dumps(snapshot, ensure_ascii=False) + "</taxharness_program_context>"
+        system, compiled = model_context(base, snapshot, tools, request.messages, token_budget=budget,
+            tag="taxharness_program_context", pinned=pinned_turn_ids(snapshot["task_memory"]))
         return handler(request.override(system_message=SystemMessage(content=system), messages=compiled))
 
 
@@ -454,6 +488,11 @@ class AgentRuntime:
             if messages:
                 output = messages[-1].content if isinstance(messages[-1], AIMessage) and isinstance(messages[-1].content, str) else ""
             output = _sanitize_reply(output)
+            blocked = [issue for issue in feedback["issues"] if issue["status"] in {"write_not_authorized", "precondition_required", "precondition_not_met"}]
+            if blocked and re.search(r"(?<!未)(?<!不)(?<!没有)(?:已保存|保存成功|已写入|已提交|已确认)", output):
+                completed = [item["invoice_id"] for item in _completed_writes(messages)]
+                prefix = "已办理：" + "、".join(dict.fromkeys(completed)) + "。" if completed else ""
+                output = prefix + "本轮有保存操作未执行：" + "；".join(dict.fromkeys(issue["summary"] for issue in blocked if issue["summary"]))
             serialized = messages_to_dict(messages)
             payload = {"status": "ok", "session_id": session_id, "turn_id": turn_id, "current_company_id": context.current_company_id, "messages": serialized, "tool_call_count": sum(len(message.tool_calls) for message in messages if isinstance(message, AIMessage))}
             if case_warning:
@@ -464,6 +503,32 @@ class AgentRuntime:
             result = {"status": "cancelled", "session_id": session_id, "turn_id": turn_id, "summary": str(error)}
             if turn_id:
                 self.agent_store.finish_turn(turn_id, status="cancelled", output_text=str(error), result=result)
+            return result
+        except ContextBudgetExceeded as error:
+            completed = []
+            if graph is not None and turn_id:
+                try:
+                    state = graph.get_state(graph_config)
+                    completed = _completed_writes(state.values.get("messages", []))
+                except (sqlite3.Error, ValueError, KeyError):
+                    completed = []
+            summary = str(error)
+            if completed:
+                details = []
+                for item in completed:
+                    label = item["invoice_id"]
+                    if label.startswith("ei-"):
+                        with sqlite3.connect(context.database_path) as database:
+                            row = database.execute("SELECT source_invoice_id FROM enterprise_invoice_links WHERE company_id=? AND invoice_id=? LIMIT 1", (item["company_id"], label)).fetchone()
+                        if row:
+                            label = row[0]
+                    fields = "、".join(f"{name}：{item['changes'][field] or '空'}" for field, name in (("purpose", "用途"), ("remarks", "备注")) if field in item["changes"])
+                    details.append(label + (f"（{fields}）" if fields else ""))
+                summary = "本轮已办理：" + "；".join(details) + "。后续回复未完成。" + summary
+            result = {"status": "error", "session_id": session_id, "turn_id": turn_id,
+                      "error_type": type(error).__name__, "summary": summary, "completed_writes": completed}
+            if turn_id:
+                self.agent_store.finish_turn(turn_id, status="error", output_text=summary, result=result)
             return result
         except Exception as error:
             result = {"status": "error", "session_id": session_id, "turn_id": turn_id, "error_type": type(error).__name__, "summary": str(error)[:500]}

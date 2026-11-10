@@ -119,7 +119,8 @@ def test_project_separates_draft_from_invoice_and_tracks_review_lifecycle(tmp_pa
         assert awaiting_review["drafts"][0]["status"] == "confirmed"
         assert awaiting_review["drafts"][0]["draft_revision"] == 2
 
-        review = service.review_invoice(user=reviewer, task_id=task_id, invoice_id=invoice_id, action="approve", comment="已核对")
+        review_token = next(row["review_token"] for row in service.work_item(user=reviewer, task_id=task_id)["invoices"]["items"] if row["invoice_id"] == invoice_id)
+        review = service.review_invoice(user=reviewer, task_id=task_id, invoice_id=invoice_id, action="approve", review_token=review_token, comment="已核对")
         assert review["invoice_status"] == "approved"
         completed = project_enterprise_work(db, user=reviewer, task_id=task_id)
         assert completed["completed"] == [invoice_id]

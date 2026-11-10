@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from xml.etree import ElementTree
 
 from taxharness.enterprise.auth import assign_membership, create_first_admin, create_user
 from taxharness.enterprise.imports import ImportManager, parse_import
@@ -22,6 +23,20 @@ def _parsed_source(name: str) -> dict[str, str]:
     assert parsed["issues"] == []
     assert len(parsed["rows"]) == 1
     return parsed["rows"][0]["source"]
+
+
+def _invoice_xml_with_identity(name: str, *, unique_code: str, invoice_code: str = "", invoice_number: str = "") -> bytes:
+    root = ElementTree.fromstring(_bytes(name))
+    replacements = {"UniqueCodeOfInvoice": unique_code}
+    if invoice_code:
+        replacements["CodeOfInvoice"] = invoice_code
+    if invoice_number:
+        replacements["NumberOfInvoice"] = invoice_number
+    for element in root.iter():
+        tag = element.tag.rsplit("}", 1)[-1]
+        if tag in replacements:
+            element.text = replacements[tag]
+    return ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
 def test_mof_invoice_amount_issue_date_and_accounting_period_are_separate():
@@ -59,17 +74,70 @@ def test_mof_invoice_type_is_preserved_in_the_parsed_record():
     assert special.get("invoice_type") == "增值税电子专用发票", f"actual parsed source fields: {special!r}"
 
 
-def test_same_mof_invoice_keeps_one_identity_across_issuer_and_receiver_views():
+def test_redacted_mof_views_expose_the_shared_reference_as_weak():
     issuer = _parsed_source("MOF-CN-06.xml")
     receiver = _parsed_source("MOF-CN-07.xml")
 
-    assert issuer["invoice_number"] == receiver["invoice_number"]
-    assert issuer["source_invoice_id"] == receiver["source_invoice_id"], (
-        f"issuer identity={issuer['source_invoice_id']!r}; "
-        f"receiver identity={receiver['source_invoice_id']!r}; "
-        f"issuer code/number={issuer['invoice_code']!r}/{issuer['invoice_number']!r}; "
-        f"receiver code/number={receiver['invoice_code']!r}/{receiver['invoice_number']!r}"
-    )
+    assert issuer["invoice_unique_code"] == receiver["invoice_unique_code"] == "TEST-DOCUMENT-REF"
+    assert issuer["identity_status"] == receiver["identity_status"] == "needs_review"
+    assert issuer["source_invoice_id"] != receiver["source_invoice_id"]
+    assert "@attachment:" not in issuer["source_invoice_id"] + receiver["source_invoice_id"]
+
+
+def test_mof_weak_redacted_references_are_held_for_review_without_merging(tmp_path):
+    with EnterpriseDatabase(tmp_path / "mof-identity-review.sqlite3") as database:
+        admin = create_first_admin(database, username="admin@mof-review.test", display_name="管理员", password=PASSWORD)
+        service = EnterpriseService(database)
+        company = service.create_company(actor=admin, name="样例企业", currency="CNY")
+        accountant = create_user(database, username="accountant@mof-review.test", display_name="会计", password=PASSWORD)
+        assign_membership(database, user_id=accountant["user_id"], company_id=company["company_id"], role="accountant")
+        manager = ImportManager(database)
+
+        def ingest(name: str, source_system: str) -> dict:
+            preview = manager.preview(user=accountant, company_id=company["company_id"], source_system=source_system,
+                                      filename=name, content=_bytes(name), mapping={})
+            return manager.commit(user=accountant, preview_id=preview["preview_id"])
+
+        original = ingest("MOF-CN-06.xml", "MOF public sample")
+        receiver = ingest("MOF-CN-07.xml", "MOF public sample")
+        different_invoice = ingest("MOF-CN-08.xml", "MOF public sample")
+
+        assert original["counts"]["inserted"] == 1
+        assert receiver["counts"]["identity_reviews"] == 1
+        assert receiver["issues"][0]["issue_code"] == "identity_review"
+        assert different_invoice["counts"]["identity_reviews"] == 1
+        assert different_invoice["counts"]["duplicate_documents"] == 0
+        assert database.connection.execute("SELECT COUNT(*) FROM invoices WHERE company_id=?", (company["company_id"],)).fetchone()[0] == 1
+
+
+def test_mof_strong_unique_code_matches_issuer_and_receiver_views(tmp_path):
+    unique_code = "24312000000098765432"
+    issuer_content = _invoice_xml_with_identity("MOF-CN-06.xml", unique_code=unique_code,
+                                                invoice_code="110000000001", invoice_number="01234567")
+    receiver_content = _invoice_xml_with_identity("MOF-CN-07.xml", unique_code=unique_code)
+    issuer = parse_import(filename="issuer.xml", content=issuer_content, mapping={}, default_currency="CNY")["rows"][0]["source"]
+    receiver = parse_import(filename="receiver.xml", content=receiver_content, mapping={}, default_currency="CNY")["rows"][0]["source"]
+    assert issuer["identity_status"] == receiver["identity_status"] == "strong"
+    assert issuer["source_invoice_id"] == receiver["source_invoice_id"] == unique_code
+
+    with EnterpriseDatabase(tmp_path / "mof-strong-identity.sqlite3") as database:
+        admin = create_first_admin(database, username="admin@mof-strong.test", display_name="管理员", password=PASSWORD)
+        service = EnterpriseService(database)
+        company = service.create_company(actor=admin, name="样例企业", currency="CNY")
+        accountant = create_user(database, username="accountant@mof-strong.test", display_name="会计", password=PASSWORD)
+        assign_membership(database, user_id=accountant["user_id"], company_id=company["company_id"], role="accountant")
+        manager = ImportManager(database)
+
+        def ingest(source_system: str, filename: str, content: bytes) -> dict:
+            preview = manager.preview(user=accountant, company_id=company["company_id"], source_system=source_system,
+                                      filename=filename, content=content, mapping={})
+            return manager.commit(user=accountant, preview_id=preview["preview_id"])
+
+        assert ingest("issuer", "issuer.xml", issuer_content)["counts"]["inserted"] == 1
+        matched = ingest("receiver", "receiver.xml", receiver_content)
+        assert matched["counts"]["duplicate_documents"] == 1
+        assert matched["counts"]["inserted"] == 0
+        assert database.connection.execute("SELECT COUNT(*) FROM invoices WHERE company_id=?", (company["company_id"],)).fetchone()[0] == 1
 
 
 def test_exact_mof_reimport_is_deduplicated_per_company(tmp_path):
@@ -106,7 +174,7 @@ def test_exact_mof_reimport_is_deduplicated_per_company(tmp_path):
         assert other_company["counts"]["inserted"] == 1
         assert database.connection.execute(
             "SELECT COUNT(*) FROM enterprise_document_identities WHERE invoice_number='TEST-DOCUMENT-REF'"
-        ).fetchone()[0] == 2
+        ).fetchone()[0] == 0
 
 
 def test_mof_accounting_records_and_bank_documents_are_not_imported_as_invoices():

@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "id": "conditional_empty",
+      "checks": {
+        "runtime_ok": true,
+        "empty_value_saved": true,
+        "one_write": true
+      },
+      "outcome": "passed",
+      "passed": true,
+      "turns": [
+        {
+          "request": "如果甲企业2026年9月F003的用途还是空白，就保存为寄送客户验收文件；否则保留原用途。",
+          "reply": "已办理：甲企业2026年9月发票F003（晓风快递，快递服务，300.00元）原用途为空，符合你设定的条件，已保存用途为“寄送客户验收文件”。备注未改动。",
+          "status": "ok",
+          "summary": "",
+          "error_type": "",
+          "tool_calls": [
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "company_id": "C001"
+              },
+              "id": "call_00_eGVeWuZ3NeqHqhk58ZUw2357",
+              "type": "tool_call"
+            },
+            {
+              "name": "save_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "company_id": "C001",
+                "changes": {
+                  "purpose": "寄送客户验收文件"
+                },
+                "expected_fields": {
+                  "purpose": ""
+                }
+              },
+              "id": "call_00_StVwJMvuwv6QCJUhDuk76132",
+              "type": "tool_call"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "model_calls": 3,
+  "estimated_increment_cny": 0.023175
+}

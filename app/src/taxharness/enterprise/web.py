@@ -132,9 +132,9 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
         return response
 
     @app.get("/api/session")
-    def session_route(state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+    def session_route(request: Request, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
         user, session = state
-        csrf = refresh_csrf(database, session)
+        csrf = refresh_csrf(database, session, request)
         companies = EnterpriseService(database).list_companies(user)
         return {"user": user, "csrf_token": csrf, "companies": companies}
 
@@ -353,7 +353,8 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     @app.post("/api/work-items/{task_id}/review")
     def review_invoice(task_id: str, payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
-            return EnterpriseService(database).review_invoice(user=actor, task_id=task_id, invoice_id=payload["invoice_id"], action=payload["action"], comment=payload.get("comment", ""))
+            return EnterpriseService(database).review_invoice(user=actor, task_id=task_id, invoice_id=payload["invoice_id"],
+                action=payload["action"], review_token=payload.get("review_token"), comment=payload.get("comment", ""))
         except Exception as error:
             fail(error)
 
@@ -570,7 +571,8 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     def update_draft(draft_id: str, payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
             return EnterpriseService(database).update_draft(user=actor, draft_id=draft_id, invoice_id=payload.get("invoice_id"),
-                purpose=payload.get("purpose"), remarks=payload.get("remarks"), expected_draft_revision=payload.get("expected_draft_revision"))
+                purpose=payload.get("purpose"), remarks=payload.get("remarks"), expected_draft_revision=payload.get("expected_draft_revision"),
+                rebase_fields=payload.get("rebase_fields"))
         except Exception as error:
             fail(error)
 

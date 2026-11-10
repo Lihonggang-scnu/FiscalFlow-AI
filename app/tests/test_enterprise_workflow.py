@@ -82,7 +82,8 @@ def test_offline_enterprise_reply_review_export_and_source_conflict(tmp_path):
         assert denied_replay["items"][0]["status"] == "permission_denied" and "result" not in denied_replay["items"][0]
         assign_membership(db, user_id=accountant["user_id"], company_id=company["company_id"], role="accountant", active=True)
         for invoice_id in ids:
-            reviewed = service.review_invoice(user=reviewer, task_id=task_id, invoice_id=invoice_id, action="approve", comment="票据说明与回复一致")
+            review_token = next(row["review_token"] for row in service.work_item(user=reviewer, task_id=task_id)["invoices"]["items"] if row["invoice_id"] == invoice_id)
+            reviewed = service.review_invoice(user=reviewer, task_id=task_id, invoice_id=invoice_id, action="approve", review_token=review_token, comment="票据说明与回复一致")
             assert reviewed["status"] == "ok"
         acknowledgement = service.submit_reply(user=respondent, request_id=request["request_id"], reply_text="收到，谢谢，内容没有变化。")
         no_new_suggestions = generate_reply_drafts(db, user=accountant, response_id=acknowledgement["response_id"], model=lambda **_: {"items": []})
@@ -97,7 +98,7 @@ def test_offline_enterprise_reply_review_export_and_source_conflict(tmp_path):
         assert late_reply["late"] is True
         late_draft = generate_reply_drafts(db, user=accountant, response_id=late_reply["response_id"], model=lambda **_: {"items": [{"invoice_id": by_source["S-01"], "purpose": "上海客户拜访（补充时间）", "evidence_quote": "第一张住宿还补充了时间", "needs_clarification": False}]})
         assert late_draft["draft_count"] == 1
-        blocked_late = service.confirm_drafts(user=accountant, draft_ids=[late_draft["drafts"][0]["draft_id"]])
+        blocked_late = service.confirm_drafts(user=accountant, draft_ids=[late_draft["drafts"][0]["draft_id"]], expected_draft_revisions={late_draft["drafts"][0]["draft_id"]: late_draft["drafts"][0]["draft_revision"]})
         assert blocked_late["items"][0]["status"] == "task_closed"
         followup = service.create_late_reply_followup(user=accountant, task_id=task_id, draft_ids=[late_draft["drafts"][0]["draft_id"]])
         assert followup["status"] == "created" and followup["task_id"] != task_id
@@ -153,12 +154,13 @@ def test_unavailable_reply_stays_pending_until_explicit_review_disposition(tmp_p
         assert draft["status"] == "unavailable" and draft["unavailable"]
         assert db.connection.execute("SELECT superseded_by FROM enterprise_drafts WHERE draft_id=?", (unknown["drafts"][0]["draft_id"],)).fetchone()[0] == draft["draft_id"]
         assert db.connection.execute("SELECT purpose FROM invoices WHERE company_id=? AND invoice_id=?", (company["company_id"], invoice_id)).fetchone()[0] is None
-        confirmation = service.confirm_drafts(user=accountant, draft_ids=[draft["draft_id"]])
+        confirmation = service.confirm_drafts(user=accountant, draft_ids=[draft["draft_id"]], expected_draft_revisions={draft["draft_id"]: draft["draft_revision"]})
         assert confirmation["items"][0]["status"] == "unavailable"
         with pytest.raises(ValueError, match="待处理"):
             service.close_work_item(user=accountant, task_id=task_id)
         service.update_company_settings(actor=admin, company_id=company["company_id"], default_currency="GBP", require_independent_review=True, allowed_dispositions=["waive_missing"])
-        service.review_invoice(user=reviewer, task_id=task_id, invoice_id=invoice_id, action="waive", comment="经办人确认无法提供，按机构授权保留空值")
+        review_token = next(row["review_token"] for row in service.work_item(user=reviewer, task_id=task_id)["invoices"]["items"] if row["invoice_id"] == invoice_id)
+        service.review_invoice(user=reviewer, task_id=task_id, invoice_id=invoice_id, action="waive", review_token=review_token, comment="经办人确认无法提供，按机构授权保留空值")
         assert service.close_work_item(user=accountant, task_id=task_id)["status"] == "closed"
         _, exported = service.export_work_item(user=accountant, task_id=task_id)
         assert "waive_missing" in exported and "真实用途" not in exported
@@ -211,7 +213,7 @@ def test_model_revision_is_snapshotted_before_inference_and_requester_revocation
 
         drafts = generate_reply_drafts(db, user=accountant, response_id=reply["response_id"], model=mutating_model)
         assert drafts["drafts"][0]["status"] == "conflict"
-        assert service.confirm_drafts(user=accountant, draft_ids=[drafts["drafts"][0]["draft_id"]])["items"][0]["status"] == "revision_conflict"
+        assert service.confirm_drafts(user=accountant, draft_ids=[drafts["drafts"][0]["draft_id"]], expected_draft_revisions={drafts["drafts"][0]["draft_id"]: drafts["drafts"][0]["draft_revision"]})["items"][0]["status"] == "revision_conflict"
         assign_membership(db, user_id=respondent["user_id"], company_id=company["company_id"], role="requester", active=False)
         assert service.list_requests(user=respondent)["total"] == 0
         with pytest.raises(PermissionError):

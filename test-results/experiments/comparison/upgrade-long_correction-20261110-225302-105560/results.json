@@ -1,0 +1,456 @@
+{
+  "version": "upgrade",
+  "case": "long_correction",
+  "created_at": "2026-11-10T22:53:02.309633+08:00",
+  "steps": [
+    {
+      "message": "建立甲企业2026年9月F002的用途任务。F002用途是购买旧培训资料，只记草稿，暂时不保存。",
+      "reply": "已为甲企业建立 2026年9月、仅含 F002 的用途补全任务，任务状态为进行中。\n\nF002 的用途“购买旧培训资料”已记录为草稿，尚未保存到发票，发票用途仍为空。需要保存时告诉我即可。",
+      "status": "ok",
+      "elapsed_seconds": 4.78,
+      "tools": [
+        "task_create",
+        "update_task_memory"
+      ],
+      "tool_batches": [
+        [
+          "task_create",
+          "update_task_memory"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "task_create",
+          "status": "created"
+        },
+        {
+          "tool": "update_task_memory",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "更正刚才F002的用途，是购买新员工培训资料；企业和月份都不变，还是先别保存。",
+      "reply": "已记录：甲企业 2026-09 任务中，F002 的用途草稿为“购买新员工培训资料”，暂不保存。需要保存时告诉我即可。",
+      "status": "ok",
+      "elapsed_seconds": 2.01,
+      "tools": [
+        "update_task_memory"
+      ],
+      "tool_batches": [
+        [
+          "update_task_memory"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "update_task_memory",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年8月的发票总额，简短回答。",
+      "reply": "甲企业2026年8月发票总额为 9046.35 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 1.99,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年9月的发票总额，简短回答。",
+      "reply": "甲企业2026年9月发票总额为 9,622.06 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 2.43,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年8月的发票总额，简短回答。",
+      "reply": "甲企业2026年8月发票总额为 9046.35 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 2.05,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年9月的发票总额，简短回答。",
+      "reply": "甲企业2026年9月发票总额为 9,622.06 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 2.56,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年8月的发票总额，简短回答。",
+      "reply": "甲企业2026年8月发票总额为 9046.35 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 1.95,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年9月的发票总额，简短回答。",
+      "reply": "甲企业2026年9月发票总额为 9622.06 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 1.91,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年8月的发票总额，简短回答。",
+      "reply": "甲企业2026年8月发票总额为 9046.35 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 1.97,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年9月的发票总额，简短回答。",
+      "reply": "甲企业2026年9月发票总额为 9622.06 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 2.23,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "只查询甲企业2026年8月的发票总额，简短回答。",
+      "reply": "甲企业2026年8月发票总额为 9046.35 元，共 10 张发票。",
+      "status": "ok",
+      "elapsed_seconds": 1.88,
+      "tools": [
+        "query_finance"
+      ],
+      "tool_batches": [
+        [
+          "query_finance"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "query_finance",
+          "status": "ok"
+        }
+      ],
+      "f002": [
+        null,
+        null,
+        1
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    },
+    {
+      "message": "把最早那项任务里我更正后的F002用途保存，其他票不要修改。",
+      "reply": "已保存。\n\n- 企业：甲企业（比赛模拟）\n- 发票：F002（2026-09-08，书林图文（模拟），800.00 元）\n- 用途：购买新员工培训资料（备注未改动）\n- 任务：最早那项任务（2026-09，仅 F002）已完成，无剩余待办\n\n其他发票未做任何修改。",
+      "status": "ok",
+      "elapsed_seconds": 3.52,
+      "tools": [
+        "read_invoice",
+        "save_invoice"
+      ],
+      "tool_batches": [
+        [
+          "read_invoice"
+        ],
+        [
+          "save_invoice"
+        ]
+      ],
+      "tool_outcomes": [
+        {
+          "tool": "read_invoice",
+          "status": "ok"
+        },
+        {
+          "tool": "save_invoice",
+          "status": "committed"
+        }
+      ],
+      "f002": [
+        "购买新员工培训资料",
+        null,
+        2
+      ],
+      "f003_a": [
+        null,
+        null,
+        1
+      ],
+      "f003_b": [
+        "购买展示用品",
+        null,
+        1
+      ]
+    }
+  ],
+  "checks": {
+    "no_early_write": true,
+    "correct_final_value": true,
+    "other_invoice_unchanged": true,
+    "runtime_ok": true
+  },
+  "passed": true,
+  "model_calls": 25,
+  "input_tokens": 195821,
+  "output_tokens": 1369,
+  "estimated_increment_cny": 0.201297,
+  "unknown_calls": 0,
+  "shared_ledger_new_calls": 25,
+  "shared_ledger_increment_cny": 0.201297,
+  "completed_at": "2026-11-10T22:53:31.621394+08:00"
+}

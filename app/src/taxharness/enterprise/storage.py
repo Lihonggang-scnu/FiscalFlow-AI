@@ -243,6 +243,7 @@ CREATE TABLE IF NOT EXISTS enterprise_drafts (
     clarification_question TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'proposed' CHECK(status IN ('proposed','clarification','confirmed','conflict','rejected')),
     source_revision INTEGER,
+    field_context_json TEXT NOT NULL DEFAULT '{}',
     draft_revision INTEGER NOT NULL DEFAULT 1,
     origin TEXT NOT NULL DEFAULT 'request',
     source_turn_id TEXT,
@@ -262,6 +263,8 @@ CREATE TABLE IF NOT EXISTS enterprise_reviews (
     reviewer_user_id TEXT NOT NULL,
     action TEXT NOT NULL CHECK(action IN ('approve','return','waive')),
     comment TEXT NOT NULL DEFAULT '',
+    review_token TEXT,
+    reviewed_snapshot_json TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY(task_id) REFERENCES enterprise_work_items(task_id)
 );
@@ -353,6 +356,14 @@ class EnterpriseDatabase(TaxDatabase):
             except Exception:
                 self.connection.rollback()
                 raise
+        draft_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_drafts)")}
+        if "field_context_json" not in draft_columns:
+            self.connection.execute("ALTER TABLE enterprise_drafts ADD COLUMN field_context_json TEXT NOT NULL DEFAULT '{}'")
+        review_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_reviews)")}
+        if "review_token" not in review_columns:
+            self.connection.execute("ALTER TABLE enterprise_reviews ADD COLUMN review_token TEXT")
+        if "reviewed_snapshot_json" not in review_columns:
+            self.connection.execute("ALTER TABLE enterprise_reviews ADD COLUMN reviewed_snapshot_json TEXT")
         response_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_responses)")}
         if "extraction_status" not in response_columns:
             self.connection.execute("ALTER TABLE enterprise_responses ADD COLUMN extraction_status TEXT NOT NULL DEFAULT 'pending'")
@@ -376,9 +387,13 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def session_csrf(token: str) -> str:
+    return hashlib.sha256(("taxharness-csrf:" + token).encode("utf-8")).hexdigest()
+
+
 def issue_session(database: EnterpriseDatabase, user_id: str, *, hours: int = 8) -> tuple[str, str]:
     token = secrets.token_urlsafe(32)
-    csrf = secrets.token_urlsafe(24)
+    csrf = session_csrf(token)
     now = datetime.now(UTC)
     database.connection.execute(
         "INSERT INTO enterprise_sessions(token_hash,user_id,csrf_hash,created_at,expires_at) VALUES(?,?,?,?,?)",

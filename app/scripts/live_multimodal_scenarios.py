@@ -63,13 +63,13 @@ def main() -> int:
         return 0
     if _peak_window(datetime.now(ZoneInfo("Asia/Shanghai"))):
         raise SystemExit("当前是高峰时段；请在闲时运行多模态场景。")
-    budget_path = UPGRADE / "budget.json"
+    budget_path = Path(os.getenv("TAXHARNESS_UPGRADE_BUDGET", str(UPGRADE / "budget.json")))
     budget = json.loads(budget_path.read_text(encoding="utf-8"))
     if budget["status"] != "active" or budget["new_limit_cny"] != 10 or not budget["offpeak_only"]:
         raise SystemExit("TaskLedger 预算配置不可用。")
     ledger = Path(budget["shared_ledger"])
     before_count, before_total = _total(ledger)
-    run_root = UPGRADE / "experiments" / ("multimodal-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
+    run_root = Path(os.getenv("TAXHARNESS_EXPERIMENTS_DIR", str(UPGRADE / "experiments"))) / ("multimodal-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
     run_root.mkdir(parents=True)
     os.environ["TAXHARNESS_LIVE_MODEL_ENABLED"] = "true"
     os.environ["TAXHARNESS_ENTERPRISE_LIVE_MODEL_ENABLED"] = "true"

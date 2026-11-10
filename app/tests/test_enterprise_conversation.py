@@ -98,7 +98,8 @@ def test_enterprise_chat_and_workbench_share_draft_and_review_state(tmp_path):
             assert detail["invoices"]["items"][0]["purpose"] == "新员工培训材料"
             assert detail["invoices"]["items"][0]["task_status"] == "awaiting_review"
             assert detail["task"]["status"] == "needs_review"
-            assert service.review_invoice(user=reviewer, task_id=work["task_id"], invoice_id=invoice_id, action="approve")["status"] == "ok"
+            review_token = service.work_item(user=reviewer, task_id=work["task_id"])["invoices"]["items"][0]["review_token"]
+            assert service.review_invoice(user=reviewer, task_id=work["task_id"], invoice_id=invoice_id, action="approve", review_token=review_token)["status"] == "ok"
     finally:
         runtime.close()
 

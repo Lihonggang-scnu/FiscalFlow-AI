@@ -131,17 +131,19 @@ function WorkItemsPage({ data = {}, month = null, selectedTaskId = null, selecte
     `${FRONTIER_ACTION_LABELS[action.action] || action.action}${action.invoice_ids?.length ? ` ${action.invoice_ids.join("、")}` : ""}`
   )).join("；");
   const targetIds = Array.isArray(selectedTask?.target_invoice_ids) ? selectedTask.target_invoice_ids : [];
+  const progressState = frontier?.progress || null;
+  const progressIds = Array.isArray(progressState?.tracked_targets) ? progressState.tracked_targets : targetIds;
   const pendingIds = taskPendingIds(selectedTask, frontier);
   const invoiceById = new Map(invoices.map((invoice) => [invoice.invoice_id, invoice]));
-  const preferredInvoiceId = selectedInvoiceId && targetIds.includes(selectedInvoiceId)
+  const preferredInvoiceId = selectedInvoiceId && progressIds.includes(selectedInvoiceId)
     ? selectedInvoiceId
     : pendingIds.find((invoiceId) => invoiceById.has(invoiceId)) || targetIds.find((invoiceId) => invoiceById.has(invoiceId)) || null;
   const selectedInvoice = preferredInvoiceId ? invoiceById.get(preferredInvoiceId) : null;
   const purposeRule = (data.rules || []).find((rule) => rule.kind === "invoice_purpose") || null;
   const completionKnown = !["waiting_input", "out_of_scope"].includes(selectedTask?.status);
-  const fixedTargetProgress = selectedTask?.scope === "selected" && completionKnown;
-  const completedCount = fixedTargetProgress ? Math.max(0, targetIds.length - pendingIds.length) : 0;
-  const progress = fixedTargetProgress && targetIds.length ? Math.max(0, Math.min(100, Math.round(completedCount * 100 / targetIds.length))) : 0;
+  const fixedTargetProgress = completionKnown && (selectedTask?.scope === "selected" || Boolean(progressState));
+  const completedCount = progressState ? progressState.completed.length : fixedTargetProgress ? Math.max(0, targetIds.length - pendingIds.length) : 0;
+  const progress = fixedTargetProgress && progressIds.length ? Math.max(0, Math.min(100, Math.round(completedCount * 100 / progressIds.length))) : 0;
   const canCreate = Boolean(data.can_modify) && month === "2026-09";
 
   const run = async (name, payload = {}) => {
@@ -191,16 +193,16 @@ function WorkItemsPage({ data = {}, month = null, selectedTaskId = null, selecte
           </section>
           </div>
           <aside className="th-data-panel th-work-progress" aria-label="办件进度">
-            <div className="th-panel-heading"><div><h2>当前办件进度</h2><span>{month}</span></div><span className="th-work-progress-count">{fixedTargetProgress ? `${completedCount} / ${targetIds.length}` : completionKnown ? `待处理 ${pendingIds.length} 张` : "未判定"}</span></div>
-            {fixedTargetProgress ? <div className="th-progress-track" role="progressbar" aria-label="办件目标进度" aria-valuemin={0} aria-valuemax={targetIds.length} aria-valuenow={completedCount}><span style={{ width: `${progress}%` }} /></div> : null}
-            <div className="th-progress-summary">{fixedTargetProgress ? <><span>目标 {targetIds.length} 张</span><span>待处理 {pendingIds.length} 张</span></> : selectedTask.scope === "all_missing" && completionKnown ? <span>待处理项按当前规则结果展示</span> : <span>当前任务无法判定完成进度</span>}</div>
-            <ul className="th-progress-list">{targetIds.map((invoiceId) => {
+            <div className="th-panel-heading"><div><h2>当前办件进度</h2><span>{month}</span></div><span className="th-work-progress-count">{fixedTargetProgress ? `${completedCount} / ${progressIds.length}` : completionKnown ? `待处理 ${pendingIds.length} 张` : "未判定"}</span></div>
+            {fixedTargetProgress ? <div className="th-progress-track" role="progressbar" aria-label="办件目标进度" aria-valuemin={0} aria-valuemax={progressIds.length} aria-valuenow={completedCount}><span style={{ width: `${progress}%` }} /></div> : null}
+            <div className="th-progress-summary">{fixedTargetProgress ? <><span>目标 {progressIds.length} 张</span><span>待处理 {progressState?.remaining?.length ?? pendingIds.length} 张</span>{progressState?.removed_by_rule?.length ? <span>规则移出 {progressState.removed_by_rule.length} 张</span> : null}{progressState?.removed_by_scope?.length ? <span>范围移出 {progressState.removed_by_scope.length} 张</span> : null}</> : <span>当前任务无法判定完成进度</span>}</div>
+            <ul className="th-progress-list">{progressIds.map((invoiceId) => {
               const invoice = invoiceById.get(invoiceId);
               const pending = pendingIds.includes(invoiceId);
               const uncertainTask = ["waiting_input", "out_of_scope"].includes(selectedTask.status);
-              const label = frontier?.waiting?.includes(invoiceId) ? "暂缓等待" : frontier?.drafts?.[invoiceId] ? "待确认草稿" : pending ? "待处理" : selectedTask.status === "completed" ? "办件已完成" : uncertainTask ? "未判定" : invoicePurposeLabel(invoice);
+              const label = progressState?.removed_by_scope?.includes(invoiceId) ? "范围已移出" : progressState?.removed_by_rule?.includes(invoiceId) ? "规则不再要求" : frontier?.waiting?.includes(invoiceId) ? "暂缓等待" : frontier?.drafts?.[invoiceId] ? "待确认草稿" : pending ? "待处理" : progressState?.completed?.includes(invoiceId) ? "已完成" : selectedTask.status === "completed" ? "办件已完成" : uncertainTask ? "未判定" : invoicePurposeLabel(invoice);
               return <li key={invoiceId} className={preferredInvoiceId === invoiceId ? "is-selected" : ""}><button type="button" onClick={() => onSelectInvoice?.(selectedTask.task_id, invoiceId)}><span className="th-progress-invoice-main"><strong>{invoiceId}</strong><small>{invoice ? `${invoice.project_name || "—"} · ${invoice.amount} 元` : "未读取该期间发票"}</small></span><span className={`th-purpose-state th-purpose-${pending ? "required" : invoice?.purpose_status || "undetermined"}`}>{label}</span></button></li>;
-            })}{!targetIds.length ? <li className="th-progress-empty">该办件暂无目标发票。</li> : null}</ul>
+            })}{!progressIds.length ? <li className="th-progress-empty">该办件暂无目标发票。</li> : null}</ul>
             {frontier ? <section className="th-work-frontier" aria-label="办理状态与最近变化">
               <div className="th-frontier-heading"><h3>办理状态</h3><span>{nextActionText ? `下一步：${nextActionText}` : "当前状态已更新"}</span></div>
               <ul className="th-frontier-list">
@@ -673,6 +675,7 @@ export default function WelcomePanel() {
               recentTurns={Array.isArray(props.workspace_recent_turns) ? props.workspace_recent_turns : []}
               notice={props.workspace_notice || notice}
               onOpenInvoice={openTaskInvoice}
+              onSelectInvoice={openTaskInvoice}
               onContinueChat={() => setPage("B")}
             />
           </div>

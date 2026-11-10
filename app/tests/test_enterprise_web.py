@@ -61,3 +61,15 @@ def test_http_parallel_read_dependencies_cross_worker_threads(tmp_path):
         responses = list(pool.map(client.get, urls))
     assert [response.status_code for response in responses] == [200] * len(urls)
 
+
+def test_two_tabs_keep_their_session_tokens_valid(tmp_path):
+    app = create_app(database_path=tmp_path / "tabs.sqlite3", agent_store_path=tmp_path / "ledger.sqlite3")
+    client = TestClient(app)
+    setup = client.post("/api/setup/admin", json={"username": "tabs@example.test", "display_name": "管理员", "password": "correct horse battery staple"})
+    first_token = setup.json()["csrf_token"]
+    second_token = client.get("/api/session").json()["csrf_token"]
+    assert first_token == second_token
+    for n, token in enumerate((first_token, second_token, first_token)):
+        result = client.post("/api/companies", json={"name": f"测试企业{n}", "default_currency": "CNY"}, headers={"X-CSRF-Token": token})
+        assert result.status_code == 200
+

@@ -1,0 +1,45 @@
+{
+  "cases": [
+    {
+      "id": "out_of_scope",
+      "checks": {
+        "runtime_ok": true,
+        "explained_scope": true,
+        "no_write": true
+      },
+      "outcome": "passed",
+      "passed": true,
+      "turns": [
+        {
+          "request": "请检查甲企业2026年8月哪些票不符合用途必填要求；不要更改任何发票或任务。",
+          "reply": "无法给出甲企业2026年8月的用途必填缺项清单，原因如下：\n\n- 规则依据：甲企业2026年8月的最新用途规则（R002 1.0）已停用，没有可适用的规则依据。\n- 检查范围：用途完整性检查目前只支持2026年9月，2026年8月不在可检查范围内。\n\n因此，我无法判定2026年8月哪些发票不符合用途必填要求。本次未修改任何发票或任务。如需检查，可改为查询2026年9月的用途缺项。",
+          "status": "ok",
+          "tool_calls": [
+            {
+              "name": "read_rule",
+              "args": {
+                "kind": "invoice_purpose",
+                "month": "2026-08",
+                "company_id": "C001"
+              },
+              "id": "call_00_z1pEh0ZAg5XiNCdifAkJ1495",
+              "type": "tool_call"
+            },
+            {
+              "name": "list_missing_purposes",
+              "args": {
+                "month": "2026-08",
+                "company_id": "C001"
+              },
+              "id": "call_01_MAbP6m5kR67ZzRMx44Ac5565",
+              "type": "tool_call"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "model_calls": 2,
+  "estimated_increment_cny": 0.015646
+}
