@@ -9,11 +9,14 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
+from ..errors import RuleConflictError, RuleNotFoundError
+from ..invoice_plans import _condition_met, _condition_valid
 from ..rule_manager import RuleManager
 from ..rules import applicable_rule, condition_execution
 from ..services import TaxService, _clean_text
 from ..storage import row_dict
 from .auth import membership, require_role
+from .field_evaluation import evaluate_draft_fields
 from .storage import CURRENCY_DIGITS as _CURRENCY_DIGITS, EnterpriseDatabase, utc_now
 
 
@@ -27,6 +30,20 @@ def _id(prefix: str) -> str:
 
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _record_actor_message(connection, *, user_id: str, company_id: str, task_id: str,
+                          turn_id: str | None, content: str | None) -> None:
+    if not turn_id or not content:
+        return
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    prior = connection.execute("""SELECT content_hash FROM enterprise_actor_messages
+        WHERE turn_id=? AND user_id=? AND company_id=? AND task_id=?""", (turn_id, user_id, company_id, task_id)).fetchone()
+    if prior and prior["content_hash"] != digest:
+        raise ValueError("同一对话来源的内容已变化，请重新办理。")
+    connection.execute("""INSERT OR IGNORE INTO enterprise_actor_messages
+        (turn_id,user_id,company_id,task_id,content,content_hash,created_at) VALUES(?,?,?,?,?,?,?)""",
+        (turn_id, user_id, company_id, task_id, content, digest, utc_now()))
 
 
 def _period(value: str) -> str:
@@ -44,17 +61,86 @@ _REVIEW_FIELDS = ("invoice_id", "issue_date", "seller_name", "project_name", "am
                   "source_status", "purpose", "remarks", "revision", "task_status")
 
 
-def _review_snapshot(task_id: str, invoice: dict) -> dict:
-    return {"task_id": task_id, **{field: invoice[field] for field in _REVIEW_FIELDS}}
+def _confirmed_field_policies(connection, *, task_id: str, invoice_id: str) -> dict:
+    rows = connection.execute("""SELECT r.confirmed_by,r.result_json FROM enterprise_confirmation_receipts r
+        JOIN enterprise_drafts d USING(draft_id) WHERE d.task_id=? AND r.invoice_id=?
+        ORDER BY r.created_at DESC,r.rowid DESC""", (task_id, invoice_id)).fetchall()
+    found, seen = {}, set()
+    for row in rows:
+        result = json.loads(row["result_json"])
+        for field in result.get("confirmed_fields", []):
+            if field in seen:
+                continue
+            seen.add(field)
+            decision = result.get("policy_decisions", {}).get(field)
+            if decision:
+                found[field] = {"confirmed_by": row["confirmed_by"], "decision": decision}
+    return found
+
+
+def _review_snapshot(database: EnterpriseDatabase, user: dict, task_id: str, invoice: dict) -> dict:
+    from .professional import review_basis
+    connection = database.connection
+    task = connection.execute("SELECT company_id,period FROM enterprise_work_items WHERE task_id=?", (task_id,)).fetchone()
+    setting = connection.execute("SELECT default_purpose_policy,require_independent_review FROM enterprise_company_settings WHERE company_id=?", (task["company_id"],)).fetchone()
+    try:
+        rule = applicable_rule(connection, kind="invoice_purpose", company_id=task["company_id"], month=task["period"])
+        method = {key: rule.get(key) for key in ("rule_id", "version", "name", "condition", "status", "effective_from")}
+    except RuleNotFoundError:
+        method = {"rule_status": "unavailable", "default_purpose_policy": setting["default_purpose_policy"]}
+    except RuleConflictError:
+        method = {"rule_status": "conflict"}
+    drafts = connection.execute("""SELECT draft_id,status,draft_revision,proposed_purpose,proposed_remarks,
+        evidence_quote,field_context_json,response_id FROM enterprise_drafts
+        WHERE task_id=? AND invoice_id=? AND (status IN ('proposed','clarification','conflict','confirmed'))
+        AND superseded_by IS NULL ORDER BY draft_id""", (task_id, invoice["invoice_id"])).fetchall()
+    basis = [{**{key: row[key] for key in ("draft_id", "status", "draft_revision", "proposed_purpose", "proposed_remarks", "evidence_quote", "response_id")},
+              "field_context": json.loads(row["field_context_json"] or "{}")} for row in drafts]
+    professional = review_basis(database, user=user, company_id=task["company_id"], period=task["period"], invoice_ids=[invoice["invoice_id"]])
+    review = {"method": method, "require_independent_review": bool(setting["require_independent_review"]),
+              "drafts": basis, "professional_method": professional["method"], "professional": professional["invoices"][0]}
+    policies = _confirmed_field_policies(connection, task_id=task_id, invoice_id=invoice["invoice_id"])
+    if policies:
+        review["autonomy_policy"] = policies
+    return {"task_id": task_id, **{field: invoice[field] for field in _REVIEW_FIELDS}, "review_basis": review}
 
 
 def _review_token(snapshot: dict) -> str:
     return hashlib.sha256(_json(snapshot).encode("utf-8")).hexdigest()
 
 
+def _review_submitter(connection, *, task, invoice_id: str) -> str:
+    receipt = connection.execute("""SELECT r.confirmed_by FROM enterprise_confirmation_receipts r
+        JOIN enterprise_drafts d USING(draft_id) WHERE r.invoice_id=? AND r.company_id=? AND d.task_id=?
+        ORDER BY r.created_at DESC,r.rowid DESC LIMIT 1""", (invoice_id, task["company_id"], task["task_id"])).fetchone()
+    if receipt:
+        return receipt["confirmed_by"]
+    imported = connection.execute("""SELECT i.user_id FROM enterprise_import_rows r JOIN enterprise_imports i USING(import_id)
+        WHERE r.company_id=? AND r.invoice_id=? ORDER BY i.created_at DESC LIMIT 1""", (task["company_id"], invoice_id)).fetchone()
+    return imported["user_id"] if imported else task["created_by"]
+
+
 class EnterpriseService:
     def __init__(self, database: EnterpriseDatabase):
         self.database = database
+        from .autonomy_policy import AutonomyPolicyService
+        self.autonomy_policy = AutonomyPolicyService(database)
+
+    def field_decision_versions(self, task_id: str) -> dict[str, dict[str, int]]:
+        versions: dict[str, dict[str, int]] = {}
+        for row in self.database.connection.execute(
+                "SELECT invoice_id,field,decision_revision FROM enterprise_field_decisions WHERE task_id=?", (task_id,)):
+            versions.setdefault(row["invoice_id"], {})[row["field"]] = int(row["decision_revision"])
+        return versions
+
+    @staticmethod
+    def _mark_field_decisions(connection, task_id: str, invoice_id: str | None, fields: list[str]) -> None:
+        if not invoice_id:
+            return
+        for field in fields:
+            connection.execute("""INSERT INTO enterprise_field_decisions(task_id,invoice_id,field,decision_revision)
+                VALUES(?,?,?,1) ON CONFLICT(task_id,invoice_id,field)
+                DO UPDATE SET decision_revision=decision_revision+1""", (task_id, invoice_id, field))
 
     def _role(self, user: dict, company_id: str, roles: set[str]) -> dict:
         return require_role(self.database, user, company_id, roles)
@@ -70,7 +156,9 @@ class EnterpriseService:
                 """SELECT c.company_id,c.name,c.short_name,s.default_currency,s.default_purpose_policy,s.require_independent_review,m.role
                    FROM companies c JOIN enterprise_company_settings s USING(company_id)
                    JOIN enterprise_memberships m USING(company_id) WHERE m.user_id=? AND m.active=1
-                   AND m.role<>'requester' ORDER BY c.name,c.company_id""",
+                   AND m.role<>'requester' AND EXISTS (SELECT 1 FROM user_company_permissions p
+                       WHERE p.user_id=m.user_id AND p.company_id=m.company_id AND p.can_view=1)
+                   ORDER BY c.name,c.company_id""",
                 (user["user_id"],),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -283,12 +371,20 @@ class EnterpriseService:
             active_task = connection.execute("SELECT * FROM enterprise_work_items WHERE company_id=? AND period=? AND status<>'closed' ORDER BY created_at DESC LIMIT 1", (company_id, period)).fetchone()
             if active_task is not None:
                 protected: set[str] = set()
-                for request in connection.execute("SELECT target_invoice_ids_json FROM enterprise_requests WHERE task_id=? AND status='open'", (active_task["task_id"],)):
+                for request in connection.execute("SELECT target_invoice_ids_json FROM enterprise_requests WHERE task_id=? AND status<>'cancelled'", (active_task["task_id"],)):
                     protected.update(json.loads(request["target_invoice_ids_json"]))
                 for draft in connection.execute("SELECT invoice_id,candidate_invoice_ids_json FROM enterprise_drafts WHERE task_id=? AND status IN ('proposed','clarification','conflict')", (active_task["task_id"],)):
                     protected.update(json.loads(draft["candidate_invoice_ids_json"]))
                     if draft["invoice_id"]:
                         protected.add(draft["invoice_id"])
+                for row in connection.execute("""SELECT r.invoice_id FROM enterprise_confirmation_receipts r
+                        JOIN enterprise_drafts d USING(draft_id) WHERE d.task_id=?
+                    UNION SELECT invoice_id FROM enterprise_reviews WHERE task_id=?
+                    UNION SELECT c.invoice_id FROM enterprise_import_conflicts c
+                        JOIN enterprise_task_invoices ti USING(company_id,invoice_id)
+                        WHERE ti.task_id=? AND c.status='open'""",
+                    (active_task["task_id"], active_task["task_id"], active_task["task_id"])):
+                    protected.add(row["invoice_id"])
                 protected_clause = f" AND invoice_id NOT IN ({','.join('?' for _ in protected)})" if protected else ""
                 connection.execute(
                     f"""DELETE FROM enterprise_task_invoices WHERE task_id=? AND origin='rule_missing' AND status='pending'
@@ -343,7 +439,9 @@ class EnterpriseService:
             clauses.append("w.company_id=?")
             params.append(company_id)
         else:
-            clauses.append("w.company_id IN (SELECT company_id FROM enterprise_memberships WHERE user_id=? AND active=1 AND role IN ('accountant','reviewer'))")
+            clauses.append("""w.company_id IN (SELECT m.company_id FROM enterprise_memberships m
+                JOIN user_company_permissions p USING(user_id,company_id)
+                WHERE m.user_id=? AND m.active=1 AND m.role IN ('accountant','reviewer') AND p.can_view=1)""")
             params.append(user["user_id"])
         if period:
             clauses.append("w.period=?")
@@ -369,7 +467,7 @@ class EnterpriseService:
         ).fetchall()
         return {"status": "ok", "page": page, "page_size": page_size, "total": count, "pages": (count + page_size - 1) // page_size, "items": [dict(row) for row in rows]}
 
-    def work_item(self, *, user: dict, task_id: str, page: int = 1, page_size: int = 50) -> dict:
+    def work_item(self, *, user: dict, task_id: str, page: int = 1, page_size: int = 50, include_review_basis: bool = True) -> dict:
         task = self.database.connection.execute("SELECT w.*,c.name AS company_name FROM enterprise_work_items w JOIN companies c USING(company_id) WHERE w.task_id=?", (task_id,)).fetchone()
         if task is None:
             raise ValueError("工作项不存在。")
@@ -400,19 +498,11 @@ class EnterpriseService:
         draft_views = []
         for row in drafts:
             draft = self._decode_draft(row)
-            draft["field_conflicts"] = {}
+            current = None
             if draft["invoice_id"] and draft["status"] not in {"confirmed", "rejected", "superseded"}:
                 current = self.database.connection.execute("SELECT purpose,remarks,revision FROM invoices WHERE company_id=? AND invoice_id=?",
                     (task["company_id"], draft["invoice_id"])).fetchone()
-                if current:
-                    for field in ("purpose", "remarks"):
-                        proposed = draft["proposed_" + field]
-                        basis = draft["field_context"].get(field)
-                        if proposed is not None and ((basis is not None and current[field] != basis["base_value"]) or
-                                (basis is None and current["revision"] != draft["source_revision"])):
-                            draft["field_conflicts"][field] = {"before": basis.get("base_value") if basis else None,
-                                "base_known": basis is not None, "current": current[field], "proposed": proposed,
-                                "current_revision": current["revision"]}
+            draft.update(evaluate_draft_fields(draft, dict(current) if current else None))
             identifiers = list(dict.fromkeys(draft["candidate_invoice_ids"] + ([draft["invoice_id"]] if draft["invoice_id"] else [])))
             if identifiers:
                 marks = ",".join("?" for _ in identifiers)
@@ -427,8 +517,10 @@ class EnterpriseService:
         invoice_views = []
         for row in invoices:
             invoice = dict(row)
-            if task["status"] != "closed":
-                invoice["review_token"] = _review_token(_review_snapshot(task_id, invoice))
+            if task["status"] != "closed" and include_review_basis:
+                review_snapshot = _review_snapshot(self.database, user, task_id, invoice)
+                invoice["review_token"] = _review_token(review_snapshot)
+                invoice["review_basis"] = review_snapshot["review_basis"]
                 receipt = self.database.connection.execute(
                     """SELECT r.result_json FROM enterprise_confirmation_receipts r JOIN enterprise_drafts d USING(draft_id)
                        WHERE d.task_id=? AND r.invoice_id=? ORDER BY r.created_at DESC,r.rowid DESC LIMIT 1""",
@@ -520,6 +612,7 @@ class EnterpriseService:
             now = utc_now()
             connection.execute("UPDATE enterprise_requests SET status='cancelled',cancelled_at=? WHERE request_id=?", (now, request_id))
             for invoice_id in json.loads(request["target_invoice_ids_json"]):
+                self._mark_field_decisions(connection, request["task_id"], invoice_id, ["purpose", "remarks"])
                 other = connection.execute("SELECT target_invoice_ids_json FROM enterprise_requests WHERE task_id=? AND request_id<>? AND status='open'", (request["task_id"], request_id)).fetchall()
                 still_requested = any(invoice_id in json.loads(row["target_invoice_ids_json"]) for row in other)
                 if not still_requested:
@@ -534,7 +627,7 @@ class EnterpriseService:
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
         if user["is_admin"]:
-            where, args = ("", [])
+            where, args = (" WHERE r.company_id=?", [company_id]) if company_id else ("", [])
         elif company_id:
             current_membership = membership(self.database, user["user_id"], company_id)
             if current_membership is None:
@@ -545,7 +638,9 @@ class EnterpriseService:
                 self._role(user, company_id, {"accountant", "reviewer"})
                 where, args = (" WHERE r.company_id=?", [company_id])
         else:
-            allowed = [row[0] for row in self.database.connection.execute("SELECT company_id FROM enterprise_memberships WHERE user_id=? AND active=1 AND role IN ('accountant','reviewer')", (user["user_id"],)).fetchall()]
+            allowed = [row[0] for row in self.database.connection.execute("""SELECT m.company_id FROM enterprise_memberships m
+                JOIN user_company_permissions p USING(user_id,company_id)
+                WHERE m.user_id=? AND m.active=1 AND m.role IN ('accountant','reviewer') AND p.can_view=1""", (user["user_id"],)).fetchall()]
             clauses = ["(r.respondent_user_id=? AND EXISTS (SELECT 1 FROM enterprise_memberships rm WHERE rm.user_id=r.respondent_user_id AND rm.company_id=r.company_id AND rm.role='requester' AND rm.active=1))"]
             args = [user["user_id"]]
             if allowed:
@@ -639,7 +734,15 @@ class EnterpriseService:
             else:
                 draft["invoice_refs"] = []
             draft_views.append(draft)
-        return {"request": value, "task_status": task["status"] if task else "unknown", "invoices": invoices, "responses": [dict(row) for row in responses], "drafts": draft_views}
+        from .reply_attachments import list_reply_attachments
+        response_views = []
+        for row in responses:
+            response = dict(row)
+            attachments = list_reply_attachments(self.database, user=user, response_id=row["response_id"])
+            response["attachments"] = [{key: item.get(key) for key in ("attachment_id", "filename", "media_type", "processing_status",
+                                      "page_count", "last_error_code", "last_error_message", "result_revision")} for item in attachments]
+            response_views.append(response)
+        return {"request": value, "task_status": task["status"] if task else "unknown", "invoices": invoices, "responses": response_views, "drafts": draft_views}
 
     def submit_reply(self, *, user: dict, request_id: str, reply_text: str) -> dict:
         reply_text = reply_text.strip()
@@ -672,7 +775,8 @@ class EnterpriseService:
             raise
 
     def create_conversation_draft(self, *, user: dict, task_id: str, invoice_id: str, purpose: str | None,
-                                  remarks: str | None, source_turn_id: str, user_text: str) -> dict:
+                                  remarks: str | None, source_turn_id: str, user_text: str,
+                                  clear_fields: list[str] | None = None) -> dict:
         connection = self.database.connection
         connection.execute("BEGIN IMMEDIATE")
         try:
@@ -683,6 +787,8 @@ class EnterpriseService:
             TaxService(self.database).require_access(user_id=user["user_id"], company_id=task["company_id"], modify=True)
             if task["status"] == "closed":
                 raise ValueError("工作项已关闭，请先建立后续工作项。")
+            _record_actor_message(connection, user_id=user["user_id"], company_id=task["company_id"], task_id=task_id,
+                                  turn_id=source_turn_id, content=user_text)
             invoice = connection.execute("""SELECT i.revision,i.purpose,i.remarks,x.source_status FROM enterprise_task_invoices ti
                 JOIN invoices i USING(company_id,invoice_id) JOIN enterprise_invoice_extra x USING(company_id,invoice_id)
                 WHERE ti.task_id=? AND ti.invoice_id=?""", (task_id, invoice_id)).fetchone()
@@ -690,9 +796,12 @@ class EnterpriseService:
                 raise ValueError("这张发票不在当前工作项中。")
             if invoice["source_status"] == "void":
                 raise ValueError("该发票已作废，不能创建用途草稿。")
-            purpose = purpose.strip() if isinstance(purpose, str) else None
-            remarks = remarks.strip() if isinstance(remarks, str) else None
-            if not purpose and not remarks:
+            clear_fields = clear_fields or []
+            if not isinstance(clear_fields, list) or len(set(clear_fields)) != len(clear_fields) or set(clear_fields) - {"purpose", "remarks"}:
+                raise ValueError("只能明确清空用途或备注。")
+            purpose = "" if "purpose" in clear_fields else (purpose.strip() or None if isinstance(purpose, str) else None)
+            remarks = "" if "remarks" in clear_fields else (remarks.strip() or None if isinstance(remarks, str) else None)
+            if purpose is None and remarks is None:
                 raise ValueError("请提供实际用途或备注。")
             existing = connection.execute("""SELECT * FROM enterprise_drafts WHERE task_id=?
                 AND status IN ('proposed','clarification','conflict') AND superseded_by IS NULL""", (task_id,)).fetchall()
@@ -703,13 +812,15 @@ class EnterpriseService:
                             "summary": "该票已有待处理草稿，请读取后按版本更正。"}
             draft_id = _id("draft-")
             fields = {field: {"base_value": invoice[field], "base_revision": int(invoice["revision"]),
-                              "evidence_quote": user_text[:3000], "source_turn_id": source_turn_id, "history": []}
+                              "evidence_quote": user_text[:3000], "source_turn_id": source_turn_id,
+                              "mode": "clear" if field in clear_fields else "draft", "history": []}
                       for field, proposed in (("purpose", purpose), ("remarks", remarks)) if proposed is not None}
             connection.execute("""INSERT INTO enterprise_drafts(draft_id,response_id,request_id,task_id,company_id,invoice_id,
                 candidate_invoice_ids_json,proposed_purpose,proposed_remarks,evidence_quote,status,source_revision,field_context_json,origin,source_turn_id,created_by,created_at)
                 VALUES(?,NULL,NULL,?,?,?,?,?,?,?,'proposed',?,?,'chat',?,?,?)""",
-                (draft_id, task_id, task["company_id"], invoice_id, _json([invoice_id]), purpose or None, remarks or None,
+                (draft_id, task_id, task["company_id"], invoice_id, _json([invoice_id]), purpose, remarks,
                  user_text[:3000], int(invoice["revision"]), _json(fields), source_turn_id, user["user_id"], utc_now()))
+            self._mark_field_decisions(connection, task_id, invoice_id, list(fields))
             result = self._decode_draft(connection.execute("SELECT * FROM enterprise_drafts WHERE draft_id=?", (draft_id,)).fetchone())
             connection.commit()
             return {"status": "created", "draft": result, "invoice_written": False, "summary": "草稿已记录，发票尚未修改。"}
@@ -719,7 +830,8 @@ class EnterpriseService:
 
     def update_draft(self, *, user: dict, draft_id: str, invoice_id: str | None, purpose: str | None, remarks: str | None,
                      expected_draft_revision: int | None = None, source_text: str | None = None,
-                     source_turn_id: str | None = None, rebase_fields: dict[str, int] | None = None) -> dict:
+                     source_turn_id: str | None = None, rebase_fields: dict[str, int] | None = None,
+                     clear_fields: list[str] | None = None) -> dict:
         connection = self.database.connection
         connection.execute("BEGIN IMMEDIATE")
         try:
@@ -731,6 +843,8 @@ class EnterpriseService:
             task = connection.execute("SELECT status FROM enterprise_work_items WHERE task_id=?", (draft["task_id"],)).fetchone()
             if task is None or task["status"] == "closed":
                 raise ValueError("原工作项已关闭；迟到回复请明确创建后续工作项。")
+            _record_actor_message(connection, user_id=user["user_id"], company_id=draft["company_id"], task_id=draft["task_id"],
+                                  turn_id=source_turn_id, content=source_text)
             if draft["status"] in {"confirmed", "rejected"}:
                 raise ValueError("已确认或已拒绝的草稿不能更改。")
             if type(expected_draft_revision) is not int or expected_draft_revision != draft["draft_revision"]:
@@ -743,10 +857,21 @@ class EnterpriseService:
                 targets = {row[0] for row in connection.execute("SELECT invoice_id FROM enterprise_task_invoices WHERE task_id=?", (draft["task_id"],)).fetchall()}
             if chosen not in targets:
                 raise ValueError("草稿只能绑定原请求中的发票。")
-            purpose = purpose.strip() if isinstance(purpose, str) else None
-            remarks = remarks.strip() if isinstance(remarks, str) else None
-            if not purpose and not remarks:
-                raise ValueError("至少要补充一项用途或备注；空值不能被模型草稿清除。")
+            clear_fields = clear_fields or []
+            if not isinstance(clear_fields, list) or len(set(clear_fields)) != len(clear_fields) or set(clear_fields) - {"purpose", "remarks"}:
+                raise ValueError("只能明确清空用途或备注。")
+            previous_contexts = json.loads(draft["field_context_json"] or "{}")
+            def proposal(field, value):
+                if field in clear_fields:
+                    return ""
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+                if value == "" and draft["proposed_" + field] == "" and previous_contexts.get(field, {}).get("mode") == "clear":
+                    return ""
+                return None
+            purpose, remarks = proposal("purpose", purpose), proposal("remarks", remarks)
+            if purpose is None and remarks is None:
+                raise ValueError("至少要补充一项用途或备注；明确清空请单独选择清空字段。")
             current = connection.execute("""SELECT i.revision,i.purpose,i.remarks,x.source_status FROM invoices i JOIN enterprise_invoice_extra x USING(company_id,invoice_id)
                 WHERE i.company_id=? AND i.invoice_id=?""", (draft["company_id"], chosen)).fetchone()
             if current is None:
@@ -759,9 +884,17 @@ class EnterpriseService:
             if any(type(revision) is not int or revision != current["revision"] for revision in rebase_fields.values()):
                 raise ValueError("票据内容又发生了变化，请刷新后重新核对。")
             fields = json.loads(draft["field_context_json"] or "{}")
+            source_conflict = fields.get("_conflict_reason", {}).get("kind") == "source_status"
+            required_rebase = {field for field, value in (("purpose", purpose), ("remarks", remarks)) if value is not None}
+            if source_conflict and not required_rebase.issubset(rebase_fields):
+                raise ValueError("票据来源状态已变化，请查看当前状态后确认需要保留的字段基线。")
+            fields.pop("_conflict_reason", None)
             changed_target = chosen != draft["invoice_id"]
+            decided_fields = []
             for field, proposed in (("purpose", purpose), ("remarks", remarks)):
                 previous = draft["proposed_" + field]
+                if changed_target or proposed != previous or field in rebase_fields:
+                    decided_fields.append(field)
                 if field in rebase_fields and proposed is None:
                     raise ValueError("未提出修改的字段不能确认覆盖。")
                 if proposed is None:
@@ -771,10 +904,24 @@ class EnterpriseService:
                     history = list(old.get("history", []))
                     if old:
                         history.append({key: old.get(key) for key in ("evidence_quote", "source_turn_id", "proposed_value")})
-                    note = f"会计查看当前值后确认用草稿覆盖：{proposed}" if field in rebase_fields else (source_text or f"会计在工作台更正{field}：{proposed}")
-                    fields[field] = {"base_value": current[field], "base_revision": int(current["revision"]),
+                    note = source_text or (f"会计查看当前值后确认用草稿覆盖：{proposed}" if field in rebase_fields else f"会计在工作台更正{field}：{proposed}")
+                    legacy_unknown = (not old and previous is not None and not changed_target and field not in rebase_fields
+                                      and int(draft["source_revision"] or -1) != int(current["revision"]))
+                    accept_current = changed_target or field in rebase_fields or (not old and not legacy_unknown)
+                    base_value = current[field] if accept_current else old.get("base_value")
+                    base_revision = int(current["revision"]) if accept_current else old.get("base_revision", draft["source_revision"])
+                    fields[field] = {"base_value": base_value, "base_revision": base_revision,
                         "evidence_quote": note[:3000],
-                        "source_turn_id": source_turn_id, "proposed_value": proposed, "history": history}
+                        "source_turn_id": source_turn_id, "source_recorded": bool(source_text), "proposed_value": proposed,
+                        "mode": "clear" if field in clear_fields else "draft", "history": history}
+                    if changed_target and proposed == previous and old.get("evidence_source"):
+                        fields[field]["evidence_source"] = old["evidence_source"]
+                        fields[field]["evidence_quote"] = old.get("evidence_quote", "")
+                        fields[field]["source_confirmation"] = {"user_id": user["user_id"], "turn_id": source_turn_id, "at": utc_now()}
+                    if legacy_unknown or old.get("base_known") is False and not accept_current:
+                        fields[field]["base_known"] = False
+                    if field in rebase_fields:
+                        fields[field]["base_acceptance"] = {"user_id": user["user_id"], "revision": int(current["revision"]), "at": utc_now()}
                 elif field not in fields and int(draft["source_revision"] or -1) == int(current["revision"]):
                     fields[field] = {"base_value": current[field], "base_revision": int(current["revision"]),
                         "evidence_quote": draft["evidence_quote"], "source_turn_id": draft["source_turn_id"], "history": []}
@@ -782,10 +929,13 @@ class EnterpriseService:
                 """UPDATE enterprise_drafts SET invoice_id=?,candidate_invoice_ids_json=?,proposed_purpose=?,proposed_remarks=?,
                    needs_clarification=0,unavailable=0,clarification_question='',status='proposed',source_revision=?,
                    field_context_json=?,draft_revision=draft_revision+1 WHERE draft_id=?""",
-                (chosen, _json([chosen]), purpose or None, remarks or None,
+                (chosen, _json([chosen]), purpose, remarks,
                  int(current["revision"]) if changed_target else draft["source_revision"], _json(fields), draft_id),
             )
             connection.execute("UPDATE enterprise_task_invoices SET status='pending',updated_at=? WHERE task_id=? AND invoice_id=? AND status='awaiting_info'", (utc_now(), draft["task_id"], chosen))
+            if changed_target:
+                self._mark_field_decisions(connection, draft["task_id"], draft["invoice_id"], decided_fields)
+            self._mark_field_decisions(connection, draft["task_id"], chosen, decided_fields)
             connection.commit()
             return dict(connection.execute("SELECT * FROM enterprise_drafts WHERE draft_id=?", (draft_id,)).fetchone())
         except Exception:
@@ -804,6 +954,9 @@ class EnterpriseService:
             if draft["status"] in {"confirmed", "rejected"}:
                 raise ValueError("已确认或已拒绝的草稿不能再次更改。")
             connection.execute("UPDATE enterprise_drafts SET status='rejected',draft_revision=draft_revision+1 WHERE draft_id=?", (draft_id,))
+            fields = [field for field in ("purpose", "remarks") if draft["proposed_" + field] is not None]
+            for invoice_id in set(json.loads(draft["candidate_invoice_ids_json"]) + ([draft["invoice_id"]] if draft["invoice_id"] else [])):
+                self._mark_field_decisions(connection, draft["task_id"], invoice_id, fields or ["purpose", "remarks"])
             if draft["invoice_id"]:
                 connection.execute("UPDATE enterprise_task_invoices SET status='pending',updated_at=? WHERE task_id=? AND invoice_id=? AND status='awaiting_info'", (utc_now(), draft["task_id"], draft["invoice_id"]))
             connection.commit()
@@ -864,7 +1017,11 @@ class EnterpriseService:
 
     def save_drafts(self, *, user: dict, response_id: str, items: list[dict],
                     source_revisions: dict[str, int] | None = None,
-                    source_values: dict[str, dict] | None = None) -> list[dict]:
+                    source_values: dict[str, dict] | None = None,
+                    decision_versions: dict[str, dict[str, int]] | None = None,
+                    stale_fields: list[dict] | None = None,
+                    extraction_basis: dict | None = None, run_guard: dict | None = None,
+                    guard_result: dict | None = None, attachment_failures: list[dict] | None = None) -> list[dict]:
         response = self.database.connection.execute(
             """SELECT p.*,r.target_invoice_ids_json,r.company_id,r.task_id FROM enterprise_responses p
                JOIN enterprise_requests r USING(request_id) WHERE p.response_id=?""", (response_id,)
@@ -909,21 +1066,90 @@ class EnterpriseService:
             ambiguous = needs_clarification or len(candidates) != 1
             invoice_id = None if ambiguous else candidates[0]
             revision = source_revisions.get(invoice_id) if invoice_id else None
-            prepared.append((invoice_id, candidates, purpose, remarks, str(item.get("evidence_quote") or "")[:3000], needs_clarification, ambiguous, unavailable, question, revision))
+            prepared.append((invoice_id, candidates, purpose, remarks, str(item.get("evidence_quote") or "")[:3000], needs_clarification, ambiguous, unavailable, question, revision, item.get("evidence_source")))
         connection = self.database.connection
         connection.execute("BEGIN IMMEDIATE")
         try:
             self._role(user, response["company_id"], {"accountant"})
             TaxService(self.database).require_access(user_id=user["user_id"], company_id=response["company_id"], modify=True)
-            current_response = connection.execute("SELECT r.task_id,r.company_id,r.target_invoice_ids_json,w.status FROM enterprise_requests r JOIN enterprise_work_items w USING(task_id) WHERE r.request_id=?", (response["request_id"],)).fetchone()
+            if run_guard:
+                run = connection.execute("""SELECT * FROM enterprise_extraction_runs WHERE run_id=? AND response_id=?
+                    AND task_id=? AND company_id=? AND created_by=?""", (run_guard["run_id"], response_id,
+                    response["task_id"], response["company_id"], user["user_id"])).fetchone()
+                if (run is None or run["state"] != "running" or run["cancel_requested"] or
+                        run["generation"] != run_guard["generation"] or not run["lease_until"] or run["lease_until"] <= utc_now()):
+                    if guard_result is not None:
+                        guard_result["accepted"] = False
+                    connection.rollback()
+                    return []
+                mandate_link = connection.execute("SELECT mandate_id FROM enterprise_mandate_extractions WHERE run_id=?", (run_guard["run_id"],)).fetchone()
+                if mandate_link:
+                    mandate = connection.execute("SELECT status,valid_until FROM enterprise_work_mandates WHERE mandate_id=?", (mandate_link["mandate_id"],)).fetchone()
+                    if mandate is None or mandate["status"] != "active" or mandate["valid_until"] <= utc_now():
+                        if guard_result is not None:
+                            guard_result["accepted"] = False
+                        connection.rollback()
+                        return []
+            current_response = connection.execute("SELECT r.task_id,r.company_id,r.target_invoice_ids_json,r.status AS request_status,w.status FROM enterprise_requests r JOIN enterprise_work_items w USING(task_id) WHERE r.request_id=?", (response["request_id"],)).fetchone()
             if current_response is None:
                 raise ValueError("原请求已不存在，草稿未保存。")
             current_allowed = set(json.loads(current_response["target_invoice_ids_json"]))
             if any(set(candidates) - current_allowed for _, candidates, *_ in prepared):
                 raise ValueError("请求范围在生成期间变化，草稿未保存。")
+            latest = connection.execute("SELECT response_id FROM enterprise_responses WHERE request_id=? ORDER BY rowid DESC LIMIT 1", (response["request_id"],)).fetchone()
+            changed_during_run = extraction_basis is not None and (
+                (latest and latest["response_id"] != extraction_basis["latest_response"]) or
+                (current_response["request_status"] == "cancelled" and extraction_basis["request_status"] != "cancelled") or
+                (current_response["status"] == "closed" and extraction_basis["task_status"] != "closed"))
+            if changed_during_run:
+                for invoice_id, candidates, purpose, remarks, quote, *_ in prepared:
+                    fields = [field for field, value in (("purpose", purpose), ("remarks", remarks)) if value is not None]
+                    for target_id in candidates or ([invoice_id] if invoice_id else []):
+                        connection.execute("""INSERT INTO enterprise_stale_candidates
+                            (candidate_id,task_id,response_id,invoice_id,fields_json,candidate_json,created_at)
+                            VALUES(?,?,?,?,?,?,?)""", (_id("stale-"), response["task_id"], response_id, target_id,
+                            _json(fields), _json({"purpose": purpose, "remarks": remarks, "evidence_quote": quote}), utc_now()))
+                        if stale_fields is not None:
+                            stale_fields.append({"invoice_id": target_id, "fields": fields})
+                connection.execute("UPDATE enterprise_responses SET extraction_status='complete',extraction_outcome='stale',processed_at=? WHERE response_id=?", (utc_now(), response_id))
+                if run_guard:
+                    connection.execute("UPDATE enterprise_extraction_runs SET state='stale',result_json=?,updated_at=? WHERE run_id=? AND generation=?",
+                        (_json({"draft_ids": [], "stale_fields": stale_fields or []}), utc_now(), run_guard["run_id"], run_guard["generation"]))
+                connection.commit()
+                return []
             response_sequence = connection.execute("SELECT rowid FROM enterprise_responses WHERE response_id=?", (response_id,)).fetchone()[0]
             saved = []
-            for invoice_id, candidates, purpose, remarks, quote, needs_clarification, ambiguous, unavailable, question, revision in prepared:
+            for invoice_id, candidates, purpose, remarks, quote, needs_clarification, ambiguous, unavailable, question, revision, evidence_source in prepared:
+                if invoice_id and decision_versions is not None:
+                    basis = decision_versions.get(invoice_id, {})
+                    current_versions = {row["field"]: int(row["decision_revision"]) for row in connection.execute(
+                        "SELECT field,decision_revision FROM enterprise_field_decisions WHERE task_id=? AND invoice_id=?",
+                        (response["task_id"], invoice_id))}
+                    proposed = {"purpose": purpose, "remarks": remarks}
+                    stale = [field for field, value in proposed.items() if value is not None and
+                             current_versions.get(field, 0) != basis.get(field, 0)]
+                    if isinstance(evidence_source, dict) and evidence_source.get("type") == "reply_attachment":
+                        source = connection.execute("""SELECT sha256,source_revision,result_revision,processing_status
+                            FROM enterprise_original_attachments WHERE attachment_id=? AND company_id=?""",
+                            (evidence_source.get("attachment_id"), response["company_id"])).fetchone()
+                        if (source is None or source["sha256"] != evidence_source.get("sha256") or
+                                source["source_revision"] != evidence_source.get("source_revision") or
+                                source["result_revision"] != evidence_source.get("result_revision") or
+                                source["processing_status"] != evidence_source.get("processing_status")):
+                            stale = list(dict.fromkeys(stale + [field for field, value in proposed.items() if value is not None]))
+                    if stale:
+                        connection.execute("""INSERT INTO enterprise_stale_candidates
+                            (candidate_id,task_id,response_id,invoice_id,fields_json,candidate_json,created_at)
+                            VALUES(?,?,?,?,?,?,?)""", (_id("stale-"), response["task_id"], response_id, invoice_id,
+                            _json(stale), _json({field: proposed[field] for field in stale} | {"evidence_quote": quote}), utc_now()))
+                        if stale_fields is not None:
+                            stale_fields.append({"invoice_id": invoice_id, "fields": stale})
+                        if "purpose" in stale:
+                            purpose = None
+                        if "remarks" in stale:
+                            remarks = None
+                        if purpose is None and remarks is None and not ambiguous and not unavailable:
+                            continue
                 if invoice_id and not ambiguous and not unavailable:
                     unchanged = connection.execute(
                         """SELECT * FROM enterprise_drafts WHERE task_id=? AND invoice_id=? AND status='proposed'
@@ -948,11 +1174,21 @@ class EnterpriseService:
                 draft_id = _id("draft-")
                 stale_context = False
                 if invoice_id:
-                    current = connection.execute("SELECT revision FROM invoices WHERE company_id=? AND invoice_id=?", (response["company_id"], invoice_id)).fetchone()
-                    stale_context = current is None or revision is None or int(current["revision"]) != int(revision)
+                    current = connection.execute("""SELECT i.revision,i.purpose,i.remarks,x.source_status FROM invoices i
+                        JOIN enterprise_invoice_extra x USING(company_id,invoice_id) WHERE i.company_id=? AND i.invoice_id=?""",
+                        (response["company_id"], invoice_id)).fetchone()
+                    observed = source_values.get(invoice_id, {})
+                    proposed = {"purpose": purpose, "remarks": remarks}
+                    if current is None or revision is None:
+                        stale_context = True
+                    elif all(field in observed for field, value in proposed.items() if value is not None):
+                        stale_context = (current["source_status"] != observed.get("source_status", current["source_status"]) or
+                            any(current[field] != observed[field] for field, value in proposed.items() if value is not None))
+                    else:
+                        stale_context = int(current["revision"]) != int(revision)
                 target_ids = set(candidates or ([invoice_id] if invoice_id else []))
                 active_drafts = connection.execute(
-                    """SELECT d.draft_id,d.invoice_id,d.candidate_invoice_ids_json,d.origin,d.created_at,
+                    """SELECT d.*,
                               p.created_at AS response_created_at,p.rowid AS response_sequence
                        FROM enterprise_drafts d LEFT JOIN enterprise_responses p USING(response_id)
                        WHERE d.task_id=? AND d.status IN ('proposed','clarification','conflict') AND d.superseded_by IS NULL""",
@@ -984,13 +1220,30 @@ class EnterpriseService:
                     if prior["invoice_id"]:
                         prior_targets.add(prior["invoice_id"])
                     if target_ids & prior_targets:
+                        if invoice_id and prior["invoice_id"] == invoice_id and not ambiguous and not unavailable:
+                            incoming = {field for field, value in (("purpose", purpose), ("remarks", remarks)) if value is not None}
+                            existing = {field for field in ("purpose", "remarks") if prior["proposed_" + field] is not None}
+                            overlap = incoming & existing
+                            if not overlap:
+                                continue
+                            remaining = existing - overlap
+                            if remaining:
+                                previous_fields = json.loads(prior["field_context_json"] or "{}")
+                                for field in overlap:
+                                    previous_fields.pop(field, None)
+                                connection.execute("""UPDATE enterprise_drafts SET proposed_purpose=?,proposed_remarks=?,
+                                    field_context_json=?,draft_revision=draft_revision+1 WHERE draft_id=?""",
+                                    (prior["proposed_purpose"] if "purpose" in remaining else None,
+                                     prior["proposed_remarks"] if "remarks" in remaining else None,
+                                     _json(previous_fields), prior["draft_id"]))
+                                continue
                         connection.execute("UPDATE enterprise_drafts SET status='rejected',superseded_by=?,draft_revision=draft_revision+1 WHERE draft_id=?", (draft_id, prior["draft_id"]))
                 observed = source_values.get(invoice_id, {})
-                fields = {field: {"base_value": observed[field], "base_revision": revision,
+                fields = {field: {"base_value": observed.get(field), "base_revision": revision, "base_known": field in observed,
                                   "evidence_quote": quote, "source_turn_id": response_id,
-                                  "proposed_value": proposed, "history": []}
+                                  "evidence_source": evidence_source, "proposed_value": proposed, "history": []}
                           for field, proposed in (("purpose", purpose), ("remarks", remarks))
-                          if proposed is not None and field in observed}
+                          if proposed is not None}
                 connection.execute(
                     """INSERT INTO enterprise_drafts(draft_id,response_id,request_id,task_id,company_id,invoice_id,candidate_invoice_ids_json,
                        proposed_purpose,proposed_remarks,evidence_quote,needs_clarification,unavailable,clarification_question,status,source_revision,field_context_json,created_by,created_at)
@@ -1007,8 +1260,14 @@ class EnterpriseService:
                 connection.execute("UPDATE enterprise_work_items SET status='in_progress',revision=revision+1,updated_at=? WHERE task_id=?", (utc_now(), response["task_id"]))
             connection.execute(
                 "UPDATE enterprise_responses SET extraction_status='complete',extraction_outcome=?,processed_at=? WHERE response_id=?",
-                ("drafts_saved" if prepared else "no_new_suggestions", utc_now(), response_id),
+                ("partially_applied" if stale_fields and saved else "stale" if stale_fields else "drafts_saved" if saved else "no_new_suggestions", utc_now(), response_id),
             )
+            if run_guard:
+                run_state = "partially_applied" if (stale_fields and saved) or attachment_failures else "stale" if stale_fields else "completed"
+                connection.execute("UPDATE enterprise_extraction_runs SET state=?,result_json=?,updated_at=? WHERE run_id=? AND generation=?",
+                    (run_state, _json({"draft_ids": [row["draft_id"] for row in saved], "stale_fields": stale_fields or [],
+                                       "attachment_failures": attachment_failures or []}),
+                     utc_now(), run_guard["run_id"], run_guard["generation"]))
             connection.commit()
             return [self._decode_draft(row) for row in saved]
         except Exception:
@@ -1016,20 +1275,35 @@ class EnterpriseService:
             raise
 
     def confirm_drafts(self, *, user: dict, draft_ids: list[str], expected_draft_revisions: dict[str, int] | None = None,
-                       expected_fields_by_draft: dict[str, dict[str, str | None]] | None = None) -> dict:
+                       expected_fields_by_draft: dict[str, dict[str, str | None]] | None = None,
+                       fields_by_draft: dict[str, list[str]] | None = None,
+                       conditions_by_draft: dict[str, dict] | None = None,
+                       source_confirmations_by_draft: dict[str, dict] | None = None,
+                       automatic_import: bool = False,
+                       conflict_revisions_by_draft: dict[str, int] | None = None) -> dict:
         """Confirm each ticket in its own short transaction; report partial success explicitly."""
         if expected_draft_revisions is not None and not isinstance(expected_draft_revisions, dict):
             raise ValueError("草稿版本必须按草稿编号提供。")
         revisions = expected_draft_revisions or {}
         conditions = expected_fields_by_draft or {}
+        fields = fields_by_draft or {}
+        typed_conditions = conditions_by_draft or {}
+        source_confirmations = source_confirmations_by_draft or {}
+        conflict_revisions = conflict_revisions_by_draft or {}
         outcomes = [self._confirm_one(user=user, draft_id=draft_id, expected_draft_revision=revisions.get(draft_id),
-                                      expected_fields=conditions.get(draft_id)) for draft_id in dict.fromkeys(draft_ids)]
+                                      expected_fields=conditions.get(draft_id), selected_fields=fields.get(draft_id),
+                                      condition=typed_conditions.get(draft_id),
+                                      source_confirmations=source_confirmations.get(draft_id), automatic_import=automatic_import,
+                                      expected_conflict_revision=conflict_revisions.get(draft_id)) for draft_id in dict.fromkeys(draft_ids)]
         succeeded = sum(item["status"] in {"committed", "duplicate", "no_change"} for item in outcomes)
         failed = len(outcomes) - succeeded
         return {"status": "ok" if failed == 0 else ("partial" if succeeded else "failed"), "confirmed": succeeded, "failed": failed, "items": outcomes}
 
     def _confirm_one(self, *, user: dict, draft_id: str, expected_draft_revision: int | None = None,
-                     expected_fields: dict[str, str | None] | None = None) -> dict:
+                     expected_fields: dict[str, str | None] | None = None,
+                     selected_fields: list[str] | None = None, condition: dict | None = None,
+                     source_confirmations: dict | None = None, automatic_import: bool = False,
+                     expected_conflict_revision: int | None = None) -> dict:
         connection = self.database.connection
         connection.execute("BEGIN IMMEDIATE")
         try:
@@ -1042,6 +1316,37 @@ class EnterpriseService:
             if type(expected_draft_revision) is not int:
                 connection.rollback()
                 return {"draft_id": draft_id, "status": "missing_draft_revision", "summary": "请先查看草稿，再确认对应版本。", "invoice_unchanged": True}
+            if draft["origin"] == "import" and draft["superseded_by"]:
+                connection.rollback()
+                return {"draft_id": draft_id, "status": "source_changed", "invoice_unchanged": True,
+                        "summary": "来源已有更新的草稿，请查看最新内容。"}
+            if selected_fields is not None and (not isinstance(selected_fields, list) or not selected_fields or
+                    len(set(selected_fields)) != len(selected_fields) or set(selected_fields) - {"purpose", "remarks"}):
+                connection.rollback()
+                return {"draft_id": draft_id, "status": "invalid_input", "summary": "请选择用途或备注字段。", "invoice_unchanged": True}
+            if condition is not None and not _condition_valid(condition):
+                connection.rollback()
+                return {"draft_id": draft_id, "status": "unsupported_precondition", "summary": "无法准确处理该条件。", "invoice_unchanged": True}
+            partial_key = None
+            if selected_fields is not None and draft["invoice_id"]:
+                decision_hash = hashlib.sha256(_json({"draft_id": draft_id, "revision": expected_draft_revision,
+                                                      "fields": sorted(selected_fields), "condition": condition,
+                                                      "expected_fields": expected_fields}).encode()).hexdigest()[:24]
+                partial_key = f"{user['user_id']}:{draft['company_id']}:invoice:{draft['invoice_id']}:partial-{decision_hash}"
+                prior_partial = connection.execute("""SELECT result_json FROM operations WHERE user_id=? AND company_id=?
+                    AND object_type='invoice' AND object_id=? AND idempotency_key=?""",
+                    (user["user_id"], draft["company_id"], draft["invoice_id"], partial_key)).fetchone()
+                if prior_partial:
+                    original = json.loads(prior_partial["result_json"])
+                    current = connection.execute("""SELECT i.*,x.source_status FROM invoices i JOIN enterprise_invoice_extra x USING(company_id,invoice_id)
+                        WHERE i.company_id=? AND i.invoice_id=?""", (draft["company_id"], draft["invoice_id"])).fetchone()
+                    current = dict(current) if current else None
+                    matches = bool(current and current["source_status"] != "void" and all(
+                        current[field] == original.get("after", {}).get(field) for field in original.get("confirmed_fields", [])))
+                    connection.rollback()
+                    return {"draft_id": draft_id, "status": "duplicate" if matches else "duplicate_changed",
+                            "result": original, "current": current, "current_matches_receipt": matches,
+                            "summary": "该字段此前已确认，当前内容已变化，请查看最新状态。" if not matches else "该字段此前已确认。"}
             prior = connection.execute("SELECT * FROM enterprise_confirmation_receipts WHERE draft_id=?", (draft_id,)).fetchone()
             if prior is not None:
                 original = json.loads(prior["result_json"])
@@ -1072,7 +1377,7 @@ class EnterpriseService:
             if not draft["invoice_id"] or draft["needs_clarification"]:
                 connection.rollback()
                 return {"draft_id": draft_id, "status": "needs_clarification", "summary": "歧义草稿须先取得澄清，不能确认。"}
-            task = connection.execute("SELECT status FROM enterprise_work_items WHERE task_id=?", (draft["task_id"],)).fetchone()
+            task = connection.execute("SELECT status,period FROM enterprise_work_items WHERE task_id=?", (draft["task_id"],)).fetchone()
             if task is None or task["status"] == "closed":
                 connection.rollback()
                 return {"draft_id": draft_id, "status": "task_closed", "invoice_unchanged": True}
@@ -1080,6 +1385,23 @@ class EnterpriseService:
             if current is None:
                 connection.rollback()
                 return {"draft_id": draft_id, "status": "not_found"}
+            import_conflict = connection.execute("""SELECT c.* FROM enterprise_import_drafts d
+                JOIN enterprise_import_conflicts c ON c.conflict_id=d.conflict_id WHERE d.draft_id=?""", (draft_id,)).fetchone()
+            if import_conflict and (import_conflict["status"] != "open" or
+                    (expected_conflict_revision is not None and current["revision"] != expected_conflict_revision)):
+                connection.rollback()
+                return {"draft_id": draft_id, "status": "revision_conflict", "invoice_unchanged": True,
+                        "summary": "来源冲突或票据内容已变化，请刷新后重新处理。"}
+            available_fields = [field for field in ("purpose", "remarks") if draft["proposed_" + field] is not None]
+            selected = selected_fields if selected_fields is not None else available_fields
+            if not selected or set(selected) - set(available_fields):
+                connection.rollback()
+                return {"draft_id": draft_id, "status": "draft_conflict", "summary": "所选字段不再属于当前草稿。", "invoice_unchanged": True}
+            partial = set(selected) != set(available_fields)
+            if condition is not None and not _condition_met(condition, dict(current)):
+                connection.rollback()
+                return {"draft_id": draft_id, "status": "precondition_not_met",
+                        "summary": "当前内容不满足你提出的保存条件，发票没有修改。", "invoice_unchanged": True}
             if expected_fields:
                 differences = {field: {"expected": value, "current": current[field]} for field, value in expected_fields.items()
                                if _clean_text(current[field]) != _clean_text(value)}
@@ -1087,36 +1409,78 @@ class EnterpriseService:
                     connection.rollback()
                     return {"draft_id": draft_id, "status": "precondition_not_met", "fields": differences,
                             "summary": "当前内容不满足你提出的保存条件，发票没有修改。", "invoice_unchanged": True}
-            if draft["status"] == "conflict":
+            conflict_reason = json.loads(draft["field_context_json"] or "{}").get("_conflict_reason", {})
+            if draft["status"] == "conflict" and conflict_reason.get("kind") != "field_conflict":
                 connection.rollback()
                 return {"draft_id": draft_id, "status": "revision_conflict", "current_revision": int(current["revision"]),
                         "draft_revision": draft["source_revision"], "current": dict(current),
                         "summary": "来源内容曾发生变化，请查看当前票据后重新处理草稿。", "invoice_unchanged": True}
-            contexts = json.loads(draft["field_context_json"] or "{}")
-            conflicts = {}
-            for field in ("purpose", "remarks"):
-                proposed = draft["proposed_" + field]
-                if proposed is None:
-                    continue
-                basis = contexts.get(field)
-                if (basis is not None and current[field] != basis["base_value"]) or (
-                        basis is None and int(current["revision"]) != int(draft["source_revision"] or -1)):
-                    conflicts[field] = {"before": basis.get("base_value") if basis else None,
-                                        "current": current[field], "proposed": proposed, "base_known": basis is not None}
+            selected_draft = self._decode_draft(draft)
+            for field in set(available_fields) - set(selected):
+                selected_draft["proposed_" + field] = None
+            conflicts = evaluate_draft_fields(selected_draft, dict(current))["field_conflicts"]
             if conflicts:
-                connection.execute("UPDATE enterprise_drafts SET status='conflict' WHERE draft_id=?", (draft_id,))
+                contexts = json.loads(draft["field_context_json"] or "{}")
+                contexts["_conflict_reason"] = {"kind": "field_conflict", "fields": sorted(conflicts)}
+                connection.execute("UPDATE enterprise_drafts SET status='conflict',field_context_json=? WHERE draft_id=?", (_json(contexts), draft_id))
                 connection.commit()
                 return {"draft_id": draft_id, "status": "revision_conflict", "current_revision": int(current["revision"]),
                         "draft_revision": draft["source_revision"], "field_conflicts": conflicts, "invoice_unchanged": True}
             if draft["status"] not in {"proposed", "conflict"}:
                 connection.rollback()
                 return {"draft_id": draft_id, "status": "not_confirmable"}
-            if draft["proposed_purpose"] is not None and not draft["proposed_purpose"].strip():
+            proposal_contexts = json.loads(draft["field_context_json"] or "{}")
+            if automatic_import:
+                automatic = connection.execute("""SELECT p.mode,p.revision,q.auto_mode,q.policy_revision
+                    FROM enterprise_import_drafts q JOIN enterprise_imports i USING(import_id)
+                    LEFT JOIN enterprise_import_source_policies p ON p.company_id=i.company_id AND p.source_system=i.source_system
+                    WHERE q.draft_id=?""", (draft_id,)).fetchone()
+                if (not automatic or automatic["auto_mode"] != "trusted_sync" or automatic["mode"] != "trusted_sync"
+                        or automatic["revision"] != automatic["policy_revision"]):
+                    connection.rollback()
+                    return {"draft_id": draft_id, "status": "source_policy_changed", "invoice_unchanged": True,
+                            "summary": "来源同步配置已变化，请由会计确认。"}
+            for field in selected:
+                if not draft["proposed_" + field].strip() and proposal_contexts.get(field, {}).get("mode") != "clear":
+                    connection.rollback()
+                    return {"draft_id": draft_id, "status": "invalid_value", "summary": "空白内容需要单独明确清空。"}
+                evidence = proposal_contexts.get(field, {}).get("evidence_source") or {}
+                if evidence.get("type") == "source_document":
+                    alias = connection.execute("""SELECT a.*,d.file_hash,d.file_content,d.original_available
+                        FROM enterprise_source_aliases a JOIN enterprise_source_documents d USING(document_id)
+                        WHERE a.alias_id=? AND a.company_id=? AND a.invoice_id=? AND a.status='linked'""",
+                        (evidence.get("alias_id"), draft["company_id"], draft["invoice_id"])).fetchone()
+                    latest = connection.execute("""SELECT content_hash FROM enterprise_source_aliases
+                        WHERE company_id=? AND source_system=? AND source_invoice_id=? AND status='linked'
+                        ORDER BY rowid DESC LIMIT 1""",
+                        (draft["company_id"], evidence.get("source_system"), evidence.get("source_invoice_id"))).fetchone()
+                    valid = (alias is not None and alias["document_id"] == evidence.get("document_id")
+                             and alias["file_hash"] == evidence.get("file_hash") and alias["original_available"]
+                             and alias["file_content"] is not None and alias["content_hash"] == evidence.get("content_hash")
+                             and latest is not None and latest["content_hash"] == evidence.get("content_hash")
+                             and json.loads(alias["source_json"]).get(field) == draft["proposed_" + field]
+                             and hashlib.sha256(bytes(alias["file_content"])).hexdigest() == alias["file_hash"])
+                    if not valid:
+                        connection.rollback()
+                        return {"draft_id": draft_id, "status": "source_changed", "invoice_unchanged": True,
+                                "summary": "来源票据已变化，请查看最新导入内容后再确认。"}
+            policy_decisions = {field: self.autonomy_policy.evaluate(user=user, company_id=draft["company_id"],
+                period=task["period"], invoice_id=draft["invoice_id"], field=field, action="confirm", task_id=draft["task_id"])
+                for field in selected}
+            blocked = [decision for decision in policy_decisions.values() if not decision["action_allowed"]]
+            if blocked:
                 connection.rollback()
-                return {"draft_id": draft_id, "status": "invalid_value", "summary": "空用途不能由模型草稿确认。"}
+                return {"draft_id": draft_id, "status": "policy_blocked", "summary": blocked[0]["reason"],
+                        "policy_decisions": policy_decisions, "invoice_unchanged": True}
+            for field, evidence in (source_confirmations or {}).items():
+                if field not in selected or not isinstance(evidence, dict) or not evidence.get("confirmed_turn_id") or not evidence.get("prompt"):
+                    raise ValueError("确认依据与所选字段不一致。")
+                _record_actor_message(connection, user_id=user["user_id"], company_id=draft["company_id"], task_id=draft["task_id"],
+                                      turn_id=evidence["confirmed_turn_id"], content=evidence.get("confirmation"))
+                proposal_contexts.setdefault(field, {})["source_confirmation"] = evidence
             before = dict(current)
-            purpose = draft["proposed_purpose"] if draft["proposed_purpose"] is not None else current["purpose"]
-            remarks = draft["proposed_remarks"] if draft["proposed_remarks"] is not None else current["remarks"]
+            purpose = _clean_text(draft["proposed_purpose"]) if "purpose" in selected else current["purpose"]
+            remarks = _clean_text(draft["proposed_remarks"]) if "remarks" in selected else current["remarks"]
             changed = purpose != current["purpose"] or remarks != current["remarks"]
             if changed:
                 connection.execute(
@@ -1126,21 +1490,51 @@ class EnterpriseService:
             after = dict(connection.execute("SELECT * FROM invoices WHERE company_id=? AND invoice_id=?", (draft["company_id"], draft["invoice_id"])).fetchone())
             link = connection.execute("SELECT field_owners_json FROM enterprise_invoice_links WHERE company_id=? AND invoice_id=?", (draft["company_id"], draft["invoice_id"])).fetchone()
             owners = json.loads(link["field_owners_json"] or "{}")
-            if draft["proposed_purpose"] is not None:
-                owners["purpose"] = "local_confirmed"
-            if draft["proposed_remarks"] is not None:
-                owners["remarks"] = "local_confirmed"
+            if "purpose" in selected:
+                owners["purpose"] = "source_trusted" if automatic_import else "local_confirmed"
+            if "remarks" in selected:
+                owners["remarks"] = "source_trusted" if automatic_import else "local_confirmed"
             connection.execute("UPDATE enterprise_invoice_links SET field_owners_json=?,updated_at=? WHERE company_id=? AND invoice_id=?", (_json(owners), utc_now(), draft["company_id"], draft["invoice_id"]))
             connection.execute("UPDATE enterprise_invoice_extra SET purpose_review_status='pending',disposition=NULL,updated_at=? WHERE company_id=? AND invoice_id=?", (utc_now(), draft["company_id"], draft["invoice_id"]))
-            connection.execute("UPDATE enterprise_task_invoices SET status='awaiting_review',disposition=NULL,updated_at=? WHERE task_id=? AND invoice_id=?", (utc_now(), draft["task_id"], draft["invoice_id"]))
-            connection.execute("UPDATE enterprise_work_items SET status='needs_review',revision=revision+1,updated_at=? WHERE task_id=? AND status<>'closed'", (utc_now(), draft["task_id"]))
-            operation_id = f"{user['user_id']}:{draft['company_id']}:invoice:{draft['invoice_id']}:{draft_id}"
-            result = {"status": "committed" if changed else "no_change", "draft_id": draft_id, "invoice_id": draft["invoice_id"], "before": before, "after": after, "confirmed_by": user["user_id"], "confirmed_draft_revision": draft["draft_revision"], "task_status": "needs_review"}
-            payload = {"changes": {"purpose": draft["proposed_purpose"], "remarks": draft["proposed_remarks"]}, "draft_id": draft_id}
+            task_status = "in_progress" if partial or not _clean_text(purpose) else "needs_review"
+            connection.execute("UPDATE enterprise_task_invoices SET status=?,disposition=NULL,updated_at=? WHERE task_id=? AND invoice_id=?", ("pending" if task_status == "in_progress" else "awaiting_review", utc_now(), draft["task_id"], draft["invoice_id"]))
+            connection.execute("UPDATE enterprise_work_items SET status=?,revision=revision+1,updated_at=? WHERE task_id=? AND status<>'closed'", (task_status, utc_now(), draft["task_id"]))
+            operation_id = partial_key if partial else f"{user['user_id']}:{draft['company_id']}:invoice:{draft['invoice_id']}:{draft_id}"
+            result = {"status": "committed" if changed else "no_change", "draft_id": draft_id, "invoice_id": draft["invoice_id"], "before": before, "after": after, "confirmed_by": user["user_id"], "confirmation_mode": "trusted_source_sync" if automatic_import else "accountant", "confirmed_draft_revision": draft["draft_revision"], "confirmed_fields": selected, "task_status": task_status}
+            if any(decision["policy_version"] for decision in policy_decisions.values()):
+                result["policy_decisions"] = policy_decisions
+            payload = {"changes": {field: draft["proposed_" + field] for field in selected}, "draft_id": draft_id}
+            confirmed_draft_id = draft_id
+            if partial:
+                contexts = proposal_contexts
+                confirmed_draft_id = _id("draft-")
+                connection.execute("""INSERT INTO enterprise_drafts
+                    (draft_id,response_id,request_id,task_id,company_id,invoice_id,candidate_invoice_ids_json,
+                     proposed_purpose,proposed_remarks,evidence_quote,needs_clarification,unavailable,clarification_question,
+                     status,source_revision,field_context_json,draft_revision,origin,source_turn_id,created_by,created_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,0,0,'','confirmed',?,?,?,?,?,?,?)""",
+                    (confirmed_draft_id, draft["response_id"], draft["request_id"], draft["task_id"], draft["company_id"], draft["invoice_id"],
+                     draft["candidate_invoice_ids_json"], draft["proposed_purpose"] if "purpose" in selected else None,
+                     draft["proposed_remarks"] if "remarks" in selected else None, draft["evidence_quote"], draft["source_revision"],
+                     _json({field: contexts[field] for field in selected if field in contexts}), draft["draft_revision"],
+                     draft["origin"], draft["source_turn_id"], user["user_id"], utc_now()))
+                for field in selected:
+                    contexts.pop(field, None)
+                connection.execute("""UPDATE enterprise_drafts SET proposed_purpose=?,proposed_remarks=?,field_context_json=?,
+                    draft_revision=draft_revision+1,status='proposed' WHERE draft_id=?""",
+                    (None if "purpose" in selected else draft["proposed_purpose"],
+                     None if "remarks" in selected else draft["proposed_remarks"], _json(contexts), draft_id))
+                result.update(confirmed_draft_id=confirmed_draft_id, remaining_draft_id=draft_id,
+                              remaining_draft_revision=int(draft["draft_revision"]) + 1)
+            else:
+                connection.execute("UPDATE enterprise_drafts SET status='confirmed',field_context_json=?,draft_revision=draft_revision+1 WHERE draft_id=?", (_json(proposal_contexts), draft_id))
             payload_hash = hashlib.sha256(_json(payload).encode()).hexdigest()
             TaxService._record_operation(connection, user["user_id"], draft["company_id"], draft["invoice_id"], operation_id, payload_hash, result["status"], result, "enterprise_confirm_draft", payload)
-            connection.execute("UPDATE enterprise_drafts SET status='confirmed',draft_revision=draft_revision+1 WHERE draft_id=?", (draft_id,))
-            connection.execute("INSERT INTO enterprise_confirmation_receipts(draft_id,company_id,invoice_id,operation_id,confirmed_by,result_json,created_at) VALUES(?,?,?,?,?,?,?)", (draft_id, draft["company_id"], draft["invoice_id"], operation_id, user["user_id"], _json(result), utc_now()))
+            connection.execute("INSERT INTO enterprise_confirmation_receipts(draft_id,company_id,invoice_id,operation_id,confirmed_by,result_json,created_at) VALUES(?,?,?,?,?,?,?)", (confirmed_draft_id, draft["company_id"], draft["invoice_id"], operation_id, user["user_id"], _json(result), utc_now()))
+            if import_conflict:
+                connection.execute("""UPDATE enterprise_import_conflicts SET status='resolved',resolved_by=?,resolution='accept_source',
+                    resolved_at=? WHERE conflict_id=? AND status='open'""", (user["user_id"], utc_now(), import_conflict["conflict_id"]))
+            self._mark_field_decisions(connection, draft["task_id"], draft["invoice_id"], selected)
             connection.commit()
             return {"draft_id": draft_id, **result}
         except PermissionError as error:
@@ -1172,7 +1566,7 @@ class EnterpriseService:
                 WHERE ti.task_id=? AND i.invoice_id=?""", (task_id, invoice_id)).fetchone()
             if current is None:
                 raise ValueError("发票不存在。")
-            snapshot = _review_snapshot(task_id, dict(current))
+            snapshot = _review_snapshot(self.database, user, task_id, dict(current))
             if not isinstance(review_token, str) or not review_token:
                 raise ValueError("请先查看当前票据信息，再进行复核。")
             if review_token != _review_token(snapshot):
@@ -1182,22 +1576,29 @@ class EnterpriseService:
             if source and source["source_status"] == "void":
                 raise ValueError("该发票已作废，不需要按有效票据复核。")
             setting = connection.execute("SELECT * FROM enterprise_company_settings WHERE company_id=?", (task["company_id"],)).fetchone()
+            if action in {"approve", "waive"} and any(
+                    policy["decision"].get("requires_independent_review") and policy["confirmed_by"] == user["user_id"]
+                    for policy in snapshot["review_basis"].get("autonomy_policy", {}).values()):
+                raise PermissionError("当前办理策略要求由不同于字段提交人的复核人审批。")
             if action == "approve":
                 if current is None or not str(current["purpose"] or "").strip():
                     raise ValueError("用途为空，不能批准；如需保留空值，须配置并明确批准允许的处置。")
-                if link["status"] == "awaiting_review":
-                    submitter = connection.execute(
-                        """SELECT r.confirmed_by FROM enterprise_confirmation_receipts r
-                           JOIN enterprise_drafts d USING(draft_id) WHERE r.invoice_id=? AND r.company_id=? AND d.task_id=?
-                           ORDER BY r.created_at DESC LIMIT 1""", (invoice_id, task["company_id"], task_id)
-                    ).fetchone()
-                    submitter_id = submitter["confirmed_by"] if submitter else None
-                elif link["status"] in {"pending", "returned"}:
-                    submitter = connection.execute(
-                        """SELECT i.user_id FROM enterprise_import_rows r JOIN enterprise_imports i USING(import_id)
-                           WHERE r.company_id=? AND r.invoice_id=? ORDER BY i.created_at DESC LIMIT 1""", (task["company_id"], invoice_id)
-                    ).fetchone()
-                    submitter_id = submitter["user_id"] if submitter else task["created_by"]
+                pending_import = connection.execute("""SELECT 1 FROM enterprise_import_drafts q
+                    JOIN enterprise_drafts d USING(draft_id) WHERE d.task_id=? AND d.invoice_id=?
+                    AND d.status IN ('proposed','clarification','conflict') AND d.superseded_by IS NULL LIMIT 1""",
+                    (task_id, invoice_id)).fetchone()
+                open_conflict = connection.execute("""SELECT 1 FROM enterprise_import_conflicts
+                    WHERE company_id=? AND invoice_id=? AND status='open' LIMIT 1""", (task["company_id"], invoice_id)).fetchone()
+                if pending_import or open_conflict:
+                    connection.rollback()
+                    return {"status": "review_not_ready", "summary": "导入内容或来源冲突尚待会计处理，请处理后再复核。"}
+                professional = snapshot["review_basis"]["professional"]
+                if professional["status"] != "supported":
+                    connection.rollback()
+                    return {"status": "review_not_ready", "summary": "用途依据或身份尚需处理，请先查看复核要求。",
+                            "professional": professional}
+                if link["status"] in {"awaiting_review", "pending", "returned"}:
+                    submitter_id = _review_submitter(connection, task=task, invoice_id=invoice_id)
                 else:
                     raise ValueError("只有待复核或来源更新后待重新核实的票据可以批准。")
                 if setting["require_independent_review"] and submitter_id == user["user_id"]:
@@ -1213,6 +1614,10 @@ class EnterpriseService:
                     raise ValueError("该企业未授权 waive_missing 处置，或票据状态不允许处置。")
                 if current and str(current["purpose"] or "").strip():
                     raise ValueError("用途已有值，不能按缺用途豁免处置。")
+                if not isinstance(comment, str) or not comment.strip():
+                    raise ValueError("请说明本次豁免的原因。")
+                if setting["require_independent_review"] and _review_submitter(connection, task=task, invoice_id=invoice_id) == user["user_id"]:
+                    raise PermissionError("启用独立复核时，提交人不能复核自己的处置。")
                 new_status, disposition = "waived", "waive_missing"
             review_id = _id("review-")
             latest_draft = connection.execute("SELECT draft_id FROM enterprise_drafts WHERE task_id=? AND invoice_id=? AND status='confirmed' ORDER BY created_at DESC LIMIT 1", (task_id, invoice_id)).fetchone()

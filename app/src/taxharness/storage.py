@@ -137,6 +137,35 @@ CREATE TABLE IF NOT EXISTS task_ledger_events (
     recorded_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS task_ledger_scope ON task_ledger_events(user_id, company_id, sequence);
+CREATE TABLE IF NOT EXISTS invoice_action_plans (
+    plan_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    turn_id TEXT NOT NULL,
+    expected_revision INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('accepted','completed','revoked')),
+    created_at TEXT NOT NULL,
+    UNIQUE(user_id,company_id,invoice_id,session_id,turn_id,payload_hash)
+);
+CREATE TABLE IF NOT EXISTS invoice_action_receipts (
+    plan_id TEXT NOT NULL,
+    action_id TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    PRIMARY KEY(plan_id,action_id),
+    FOREIGN KEY(plan_id) REFERENCES invoice_action_plans(plan_id)
+);
+CREATE TABLE IF NOT EXISTS invoice_action_requests (
+    user_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    request_key TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    PRIMARY KEY(user_id,company_id,request_key)
+);
 """
 
 

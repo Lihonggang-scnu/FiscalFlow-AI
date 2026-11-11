@@ -61,6 +61,8 @@ def create_first_admin(database: EnterpriseDatabase, *, username: str, display_n
             (user_id, username, display_name.strip() or username, _password_hash(password), now),
         )
         database.connection.execute("INSERT INTO users(user_id,name) VALUES(?,?)", (user_id, display_name.strip() or username))
+        database.connection.execute("""INSERT OR IGNORE INTO user_company_permissions(user_id,company_id,can_view,can_modify)
+            SELECT ?,company_id,1,1 FROM companies""", (user_id,))
         database.connection.commit()
     except Exception:
         database.connection.rollback()
@@ -80,6 +82,9 @@ def create_user(database: EnterpriseDatabase, *, username: str, display_name: st
         (user_id, username, name, _password_hash(password), int(is_admin), now),
     )
     database.connection.execute("INSERT INTO users(user_id,name) VALUES(?,?)", (user_id, name))
+    if is_admin:
+        database.connection.execute("""INSERT INTO user_company_permissions(user_id,company_id,can_view,can_modify)
+            SELECT ?,company_id,1,1 FROM companies""", (user_id,))
     return {"user_id": user_id, "username": username, "display_name": name, "is_admin": bool(is_admin)}
 
 
@@ -194,5 +199,8 @@ def require_role(database: EnterpriseDatabase, user: dict, company_id: str, allo
         return {**value, "role": "admin"}
     if role not in allowed:
         raise PermissionError("当前角色不能执行此操作。")
+    if role in {"accountant", "reviewer"}:
+        from ..services import TaxService
+        TaxService(database).require_access(user_id=user["user_id"], company_id=company_id)
     return value
 

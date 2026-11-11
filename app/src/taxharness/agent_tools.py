@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import AIMessage, ToolMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from .agent_store import AgentStore
@@ -16,6 +18,7 @@ from .conversation_history import companies_used
 from .errors import InvalidInputError, TaxHarnessError, TurnCancelled
 from .experience import ExperienceBook
 from .invoice_undo import undo_invoice_change
+from .invoice_plans import InvoicePlans
 from .preferences import PreferenceManager, PreferenceStore, default_preference_path, preference_catalog_text
 from .question_planner import rank_questions
 from .rule_impact import preview_purpose_rule
@@ -24,7 +27,7 @@ from .services import TaxService
 from .storage import TaxDatabase
 from .task_ledger import TaskLedger
 from .task_manager import TaskManager
-from .turn_intent import company_aliases, write_conditions, write_restricted
+from .turn_intent import company_aliases, condition_supported_by_quote, draft_write_restricted, parsed_write_condition, write_requested, write_restricted
 
 
 class MemoryOperation(BaseModel):
@@ -42,6 +45,17 @@ class MemoryOperation(BaseModel):
     id: str | None = None
     targets: list[str] | None = None
     effective_at: str | None = None
+    source_quote: str | None = None
+
+
+class InvoiceFieldAction(BaseModel):
+    field: Literal["purpose", "remarks"]
+    mode: Literal["preserve", "draft", "commit", "clear", "defer"]
+    value: str | None = None
+    source_quote: str | None = None
+    condition: dict[str, Any] | None = None
+    condition_quote: str | None = None
+    reason: str | None = None
 
 
 @dataclass
@@ -60,7 +74,7 @@ class AgentContext:
     provider_kind: str = "deepseek"
     input_price_cny: float = 1.0
     output_price_cny: float = 4.0
-    context_budget_tokens: int = 16000
+    context_budget_tokens: int = 24000
     budget_ledger_path: str = ""
     recent_objects: list[dict[str, Any]] = field(default_factory=list)
     active_work_item_id: str | None = None
@@ -135,6 +149,138 @@ def _task_result(value: dict) -> dict:
     return _compact_for_user(value)
 
 
+def _affirmative(text: str) -> bool:
+    text = re.sub(r"[\s。.!！,，]", "", text)
+    return bool(re.fullmatch(r"(?:是|是的|对|对的|没错|正确|好|好的|可以|可以的|行|同意|确认|没问题|没有问题|就这样|就这么办|照办|就按这个|按这个来|按你说的|按你的建议|照此办理)(?:请?(?:确认)?(?:保存|写入|确认|记录草稿|这样办|就这样))?", text))
+
+
+def _confirmed_proposal(context: AgentContext, company_id: str, invoice_id: str, field: str, value: str, mode: str) -> dict | None:
+    """Accept a short confirmation only for the one proposal actually shown in the previous turn."""
+    if not _affirmative(context.current_user_text):
+        return None
+    turns = AgentStore(context.agent_store_path).list_turns(context.session_id, context.user_id, limit=10)
+    previous = next((turn for turn in turns if turn["turn_id"] != context.turn_id and turn["status"] == "ok"), None)
+    if not previous:
+        return None
+    try:
+        messages = json.loads(previous["result_json"] or "{}").get("messages", [])
+        proposals = []
+        for message in messages:
+            if message.get("type") != "tool":
+                continue
+            result = json.loads(message.get("data", {}).get("content", "{}"))
+            if not isinstance(result, dict):
+                continue
+            items = result.get("items")
+            for candidate in [result, *(items if isinstance(items, list) else [])]:
+                if isinstance(candidate, dict) and candidate.get("status") == "confirmation_required" and candidate.get("proposal"):
+                    proposals.append(candidate["proposal"])
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    unique = {json.dumps(item, ensure_ascii=False, sort_keys=True) for item in proposals
+              if item.get("prompt") and item["prompt"] in (previous.get("output_text") or "")}
+    if len(unique) != 1:
+        return None
+    proposal = json.loads(unique.pop())
+    expected = {"company_id": company_id, "invoice_id": invoice_id, "field": field, "value": value, "mode": mode}
+    if any(proposal.get(key) != wanted for key, wanted in expected.items()):
+        return None
+    if proposal.get("prompt") not in (previous.get("output_text") or ""):
+        return None
+    return {**proposal, "displayed_turn_id": previous["turn_id"]}
+
+
+def _proposal(context: AgentContext, company_id: str, invoice_id: str, field: str, value: str,
+              source_quote: str | None, mode: str, revision: int, *, display_invoice: str | None = None) -> dict:
+    if not source_quote or source_quote not in context.current_user_text or len(context.current_user_text) > 2000:
+        return {"status": "source_required", "field": field, "summary": "请提供这项内容的实际说明；发票尚未修改。"}
+    label = "用途" if field == "purpose" else "备注"
+    action = "保存" if mode == "commit" else "记录草稿"
+    prompt = f"请核对：{company_id} 的发票 {display_invoice or invoice_id}，{label}拟写为“{value}”。你的原要求是“{context.current_user_text}”。确认后我再{action}。"
+    return {"status": "confirmation_required", "field": field, "summary": prompt,
+            "proposal": {"company_id": company_id, "invoice_id": invoice_id, "field": field, "value": value,
+                         "mode": mode, "revision": revision, "original_instruction": context.current_user_text,
+                         "source_quote": source_quote, "prompt": prompt}}
+
+
+def _value_source(context: AgentContext, database: TaxDatabase, company_id: str, invoice_id: str,
+                  field: str, value: str, source_quote: str | None) -> dict | None:
+    if value.strip() in context.current_user_text:
+        return {"kind": "user_message", "turn_id": context.turn_id, "quote": value.strip()}
+    memory = TaskLedger(database).memory(user_id=context.user_id, company_id=company_id)
+    draft = memory["drafts"].get(f"{invoice_id}:{field}")
+    if not draft or str(draft.get("value", "")).strip() != value.strip():
+        return None
+    previous_source = draft.get("value_source")
+    if isinstance(previous_source, dict) and previous_source.get("kind") == "user_confirmed_proposal":
+        store = AgentStore(context.agent_store_path)
+        confirmed = store.get_turn(previous_source.get("turn_id", ""), context.user_id)
+        displayed = store.get_turn(previous_source.get("displayed_turn_id", ""), context.user_id)
+        if (confirmed and displayed and confirmed.get("request_text") == previous_source.get("quote") and
+                _affirmative(confirmed["request_text"]) and value.strip() in (displayed.get("output_text") or "") and
+                invoice_id in (displayed.get("output_text") or "") and company_id in (displayed.get("output_text") or "")):
+            return previous_source
+    if isinstance(previous_source, dict) and previous_source.get("kind") in {"user_message", "earlier_user_message"}:
+        previous_turn = AgentStore(context.agent_store_path).get_turn(previous_source.get("turn_id", ""), context.user_id)
+        quote = previous_source.get("quote")
+        if previous_turn and quote and value.strip() in quote and quote in (previous_turn.get("request_text") or ""):
+            return previous_source
+    if isinstance(previous_source, dict) and previous_source.get("kind") == "workspace_draft":
+        previous = database.connection.execute("""SELECT payload_json FROM task_ledger_events
+            WHERE event_id=? AND user_id=? AND company_id=? AND kind='draft_set'""",
+            (previous_source.get("event_id"), context.user_id, company_id)).fetchone()
+        if previous:
+            payload = json.loads(previous["payload_json"])
+            if payload.get("source") == "workspace" and payload.get("invoice_id") == invoice_id and payload.get("field") == field and payload.get("value") == value:
+                return previous_source
+    if draft.get("source") == "workspace":
+        return {"kind": "workspace_draft", "event_id": draft.get("event_id"), "turn_id": draft.get("source_turn_id")}
+    turn = AgentStore(context.agent_store_path).get_turn(draft.get("source_turn_id", ""), context.user_id)
+    if not turn:
+        return None
+    source = turn.get("request_text") or ""
+    quote = draft.get("source_quote") or value.strip()
+    return {"kind": "earlier_user_message", "turn_id": draft.get("source_turn_id"),
+            "event_id": draft.get("event_id"), "quote": quote} if quote and value.strip() in quote and quote in source else None
+
+
+def _finish_invoice_result(context: AgentContext, target: str, service: TaxService, tasks: TaskManager,
+                           invoice_id: str, month: str, operation_id: str, observed: dict | None,
+                           result: dict) -> dict:
+    status = result.get("status")
+    if status == "committed":
+        active = tasks._active(context.user_id, target)
+        if active:
+            try:
+                refreshed = tasks.refresh_task(task_id=active["task_id"], user_id=context.user_id, company_id=target)
+                result.update(task=refreshed.get("task"), task_progress_updated=refreshed.get("status") == "ok", task_refresh_status=refreshed.get("status"))
+            except Exception as error:
+                result.update(task_progress_updated=False, task_refresh_status="failed", task_refresh_error=type(error).__name__)
+        else:
+            result.update(task_progress_updated=False, task_refresh_status="no_active_task")
+    if status == "duplicate":
+        fresh = service.read_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id, month=month)
+        if fresh.get("status") == "ok":
+            current = fresh["data"]
+            historic = result.get("result", {}).get("after") or result.get("result", {}).get("current") or {}
+            result["current_state"] = current
+            result["receipt_matches_current"] = bool(historic and historic.get("revision") == current.get("revision"))
+    if status in {"committed", "no_change"}:
+        verified = result.get("after") or result.get("current")
+        if verified and (status == "committed" or observed is None or verified["revision"] == observed["revision"]):
+            with context.lock:
+                context.observed_invoices[(target, invoice_id)] = dict(verified)
+    final_status = status
+    if status == "duplicate":
+        original = result.get("original_status")
+        final_status = original if original in {"committed", "no_change"} else "failed"
+    elif status not in {"committed", "no_change"}:
+        final_status = "failed"
+    AgentStore(context.agent_store_path).finish_operation(operation_id, status=final_status, result=result)
+    _remember(context, target, invoice_id, month)
+    return _compact_for_user(result)
+
+
 def _resolve_task_id(tasks: TaskManager, context: AgentContext, company_id: str, task_id: str | None) -> tuple[str | None, dict | None]:
     if task_id:
         return task_id, None
@@ -145,7 +291,7 @@ def _resolve_task_id(tasks: TaskManager, context: AgentContext, company_id: str,
 
 
 def make_agent_tools() -> list:
-    @tool(description="查询指定企业和月份的发票总额、银行收入和支出。company_id 省略时使用当前办理企业；临时指定企业不会改变当前办理企业。")
+    @tool(description="查询指定企业和月份的发票总额、银行收入和支出；银行总笔数以及收入、支出各自的笔数分别返回。company_id 省略时使用当前办理企业；临时指定企业不会改变当前办理企业。")
     def query_finance(month: str, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _services(runtime, company_id) as (_, target, service, _):
             return _compact_for_user(service.query_all(user_id=runtime.context.user_id, company_id=target, month=month))
@@ -243,18 +389,42 @@ def make_agent_tools() -> list:
                 return error
             return _task_result(tasks.delete_task(task_id=resolved, user_id=context.user_id, company_id=target))
 
-    @tool(description="记录用户明确表达的任务草稿、暂缓、继续或待办事项，使新对话也能接续。每项必须有 action，例如 {\"action\":\"draft\",\"invoice_id\":\"F003\",\"field\":\"purpose\",\"value\":\"用户提供的用途\",\"save_requested\":false}。更正草稿也使用 action=draft 并提供新值；remove_draft 需 invoice_id、field；defer 或 resume 需 invoice_id；note 或 remove_note 需 key，note 另需 value；question_asked 可记录实际要问的 id 和 targets。用户明确指定事项生效时间时可提供 ISO 格式 effective_at。只记录用户实际提供的信息，不代替业务保存。")
+    @tool(description="记录用户明确表达的草稿、暂缓和待办，不写发票。草稿用 action=draft、invoice_id、field、value；转述时用 source_quote 引用用户原话。其他动作有 remove_draft、defer、resume、note、remove_note、question_asked。")
     def update_task_memory(operations: list[MemoryOperation], company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _services(runtime, company_id) as (context, target, _, _):
             with TaxDatabase(context.database_path) as database:
                 ledger = TaskLedger(database)
+                prepared = []
+                rejected = []
+                companies = company_aliases(database)
+                for item in operations:
+                    operation = item.model_dump(exclude_none=True)
+                    operation.pop("value_source", None)
+                    if item.action in {"draft", "remove_draft", "defer", "resume", "note", "remove_note"} and draft_write_restricted(
+                            context.current_user_text, [item.invoice_id] if item.invoice_id else [],
+                            [item.field] if item.field else ["purpose", "remarks"], company_id=target, companies=companies):
+                        rejected.append({"invoice_id": item.invoice_id, "field": item.field, "status": "write_not_authorized"})
+                        continue
+                    if item.action == "draft" and item.invoice_id and item.field and isinstance(item.value, str):
+                        source = _value_source(context, database, target, item.invoice_id, item.field, item.value, item.source_quote)
+                        if source is None:
+                            rejected.append({"invoice_id": item.invoice_id, "field": item.field, "status": "source_required"})
+                            continue
+                        operation["value_source"] = source
+                    prepared.append(operation)
+                if not prepared:
+                    denied = any(item["status"] == "write_not_authorized" for item in rejected)
+                    return {"status": "write_not_authorized" if denied else "source_required", "items": rejected,
+                            "summary": "本轮要求只查看，任务内容没有修改。" if denied else "请引用草稿内容的实际说明。"}
                 result = ledger.apply(user_id=context.user_id, company_id=target, session_id=context.session_id,
-                                      turn_id=context.turn_id, operations=[item.model_dump(exclude_none=True) for item in operations])
+                                      turn_id=context.turn_id, operations=prepared)
                 result["work"] = ledger.frontier(user_id=context.user_id, company_id=target,
                                                  session_id=context.session_id, turn_id=context.turn_id)
                 result["memory"].pop("last_frontier", None)
                 result["memory"].pop("cases", None)
                 result["memory"].pop("strategies", None)
+                if rejected:
+                    result.update(status="partial", rejected=rejected, summary="部分事项未满足本轮要求，其余事项已记录。")
                 return result
 
     @tool(description="读取当前任务的可办理事项、待询问信息、暂缓事项、草稿与最近变化。先从当前发票和规则刷新，不执行保存。")
@@ -280,6 +450,43 @@ def make_agent_tools() -> list:
             return {"status": "ok", "turn_id": turn_id, "request": turn["request_text"],
                     "reply": turn.get("output_text") or "", "created_at": turn["created_at"],
                     "summary": "这是当时的对话记录；当前业务数据请重新查询。"}
+
+    @tool(description="按上下文中折叠结果的 result_ref 取回本会话的历史工具结果；可分页读取。历史结果不是当前数据，当前状态需重新查询。")
+    def recall_tool_result(result_ref: str, offset: int = 0, length: int = 6000,
+                           company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _services(runtime, company_id) as (context, target, service, _):
+            if type(offset) is not int or offset < 0 or type(length) is not int or not 1 <= length <= 12000:
+                return {"status": "invalid_input", "summary": "分页范围无效。"}
+            messages = runtime.state.get("messages", [])
+            result = next((item for item in messages if isinstance(item, ToolMessage) and item.tool_call_id == result_ref), None)
+            if result is None:
+                return {"status": "not_found", "summary": "没有找到这个工具结果。"}
+            call = next((call for item in messages if isinstance(item, AIMessage) for call in item.tool_calls if call.get("id") == result_ref), {})
+            try:
+                payload = json.loads(result.content) if isinstance(result.content, str) else result.content
+            except json.JSONDecodeError:
+                payload = result.content
+            scopes = set()
+            def collect(value):
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        if key == "company_id" and isinstance(child, str) and child and child != "*":
+                            scopes.add(child)
+                        else:
+                            collect(child)
+                elif isinstance(value, list):
+                    for child in value:
+                        collect(child)
+            collect(payload)
+            collect(call.get("args", {}))
+            if not scopes and result.name != "read_rule":
+                return {"status": "scope_unavailable", "summary": "这条历史结果缺少可核对的企业范围，请重新查询。"}
+            for company in scopes or {target}:
+                service.require_access(user_id=context.user_id, company_id=company)
+            text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+            return {"status": "ok", "result_ref": result_ref, "tool_name": result.name, "offset": offset,
+                    "total_chars": len(text), "has_more": offset + length < len(text), "content": text[offset:offset + length],
+                    "summary": "这是历史工具结果；当前业务状态请重新查询。"}
 
     @tool(description="查看过去某个记录时间和业务生效时间下的任务记忆。as_of_recorded 是系统获知截止时间，valid_at 是业务生效时间；使用 ISO 日期或日期时间。返回历史状态，不代表当前发票或规则。")
     def recall_task_state(as_of_recorded: str | None = None, valid_at: str | None = None, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
@@ -375,29 +582,140 @@ def make_agent_tools() -> list:
         with _preferences(runtime) as (context, _, manager):
             return _compact_for_user(manager.delete(user_id=context.user_id, preference_id=preference_id, expected_revision=expected_revision))
 
-    @tool(description="统一保存发票用途或备注。changes 只包含需要改变的字段；空字符串表示明确清空。用户提出条件时，必须在 expected_fields 中填写用途或备注的期望原值，空值用空字符串；条件不满足不会保存。本轮已读取过的发票使用首次读取的版本。")
-    def save_invoice(invoice_id: str, changes: dict, month: str | None = None, company_id: str | None = None,
-                     expected_fields: dict[str, str | None] | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
-        _check_cancel(runtime)
+    @tool(description="把用户本轮明确的逐字段决定整理成计划。每项说明 field、mode（preserve/draft/commit/clear/defer）、实际内容及可选 source_quote；intent_quote 必须是用户本轮原话。支持按字段附加 condition 和 condition_quote。此工具只准备，不修改发票。")
+    def prepare_invoice_actions(invoice_id: str, intent_quote: str, actions: list[InvoiceFieldAction],
+                                month: str | None = None, company_id: str | None = None,
+                                runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _services(runtime, company_id) as (context, target, service, tasks):
-            companies = company_aliases(tasks.database)
-            if write_restricted(context.current_user_text, [invoice_id], list(changes), company_id=target, companies=companies):
-                return {"status": "write_not_authorized", "summary": "你本轮要求查看或暂不保存，这张发票没有修改。"}
+            if not intent_quote or intent_quote not in context.current_user_text:
+                return {"status": "source_required", "summary": "请引用当前用户实际作出的决定。"}
             current = service.read_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id, month=month)
             if current.get("status") != "ok":
                 return current
-            conditional, empty_fields = write_conditions(context.current_user_text, [invoice_id], company_id=target, companies=companies)
+            companies = company_aliases(tasks.database)
+            normalized = []
+            for item in actions:
+                action = item.model_dump(exclude_none=True)
+                field, mode = action["field"], action["mode"]
+                confirmed = (_confirmed_proposal(context, target, invoice_id, field, action["value"], mode)
+                             if mode in {"draft", "commit"} and action.get("value") else None)
+                if confirmed and current["data"]["revision"] != confirmed["revision"]:
+                    return {"status": "revision_conflict", "field": field, "summary": "票据在确认期间发生变化，请重新查看。"}
+                if mode in {"commit", "clear"} and not confirmed and not write_requested(context.current_user_text, [invoice_id], [field], company_id=target, companies=companies):
+                    return {"status": "write_not_authorized", "field": field, "summary": "尚未收到对该字段的保存决定。"}
+                if mode in {"commit", "clear"} and write_restricted(context.current_user_text, [invoice_id], [field], company_id=target, companies=companies):
+                    return {"status": "write_not_authorized", "field": field, "summary": "用户没有允许修改这一字段。"}
+                if mode == "clear" and not any(word in intent_quote for word in ("清空", "清除", "置空", "删除", "改为空", "改成空", "去掉")):
+                    return {"status": "source_required", "field": field, "summary": "清空字段需要用户明确提出。"}
+                if mode in {"draft", "commit"} and action.get("value"):
+                    source = ({"kind": "user_confirmed_proposal", "turn_id": context.turn_id, "quote": context.current_user_text,
+                               "displayed_turn_id": confirmed["displayed_turn_id"], "source_quote": confirmed["source_quote"]}
+                              if confirmed else _value_source(context, tasks.database, target, invoice_id, field, action["value"], action.get("source_quote")))
+                    if not source:
+                        return _proposal(context, target, invoice_id, field, action["value"], action.get("source_quote"), mode, current["data"]["revision"])
+                    action["value_source"] = source
+                condition_text = confirmed["original_instruction"] if confirmed else context.current_user_text
+                conditional, original_condition = parsed_write_condition(condition_text, [invoice_id], company_id=target, companies=companies)
+                if mode in {"commit", "clear"} and conditional:
+                    proposed = action.get("condition")
+                    if original_condition and proposed and proposed != original_condition:
+                        return {"status": "precondition_required", "summary": "计划中的条件与用户原话不一致。"}
+                    if original_condition:
+                        action["condition"] = original_condition
+                        action["condition_quote"] = condition_text
+                    elif (not proposed or not action.get("condition_quote") or action["condition_quote"] not in context.current_user_text
+                          or not condition_supported_by_quote(proposed, action["condition_quote"])):
+                        return {"status": "precondition_required", "summary": "请引用并准确表达用户提出的保存条件。"}
+                elif mode in {"commit", "clear"} and action.get("condition"):
+                    if (not action.get("condition_quote") or action["condition_quote"] not in context.current_user_text
+                            or not condition_supported_by_quote(action["condition"], action["condition_quote"])):
+                        return {"status": "precondition_required", "summary": "请引用并准确表达保存条件。"}
+                action.pop("source_quote", None)
+                normalized.append(action)
+            observed = context.observed_invoices.get((target, invoice_id))
+            revision = observed["revision"] if observed else current["data"]["revision"]
+            plan = InvoicePlans(tasks.database).prepare(user_id=context.user_id, company_id=target, invoice_id=invoice_id,
+                session_id=context.session_id, turn_id=context.turn_id, user_message=context.current_user_text,
+                intent_quote=intent_quote, expected_revision=revision, actions=normalized)
+            return {**plan, "status": "prepared", "invoice_id": invoice_id, "company_id": target,
+                    "summary": "已整理逐字段决定；尚未修改发票。"}
+
+    @tool(description="执行刚准备并接受的计划动作，只传 plan_id 和 action_ids；按原计划的字段、值和条件办理。多个有先后关系的动作应分步执行。")
+    def commit_invoice_actions(plan_id: str, action_ids: list[str], company_id: str | None = None,
+                               runtime: ToolRuntime[AgentContext] = None) -> dict:
+        with _services(runtime, company_id) as (context, target, service, tasks):
+            row = tasks.database.connection.execute("""SELECT * FROM invoice_action_plans
+                WHERE plan_id=? AND user_id=? AND company_id=?""", (plan_id, context.user_id, target)).fetchone()
+            if row is None:
+                return {"status": "not_found", "summary": "没有找到当前用户的办理计划。"}
+            invoice_id = row["invoice_id"]
+            current = service.read_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id)
+            if current.get("status") != "ok":
+                return current
+            month = current["data"]["issue_date"][:7]
+            observed = context.observed_invoices.get((target, invoice_id))
+            store = AgentStore(context.agent_store_path)
+            operation = store.get_or_create_operation(session_id=context.session_id, turn_id=context.turn_id,
+                user_id=context.user_id, company_id=target, object_type="invoice", object_id=invoice_id,
+                payload={"plan_id": plan_id, "action_ids": action_ids}, expected_revision=row["expected_revision"])
+            try:
+                result = InvoicePlans(tasks.database).commit(user_id=context.user_id, company_id=target,
+                    session_id=context.session_id, turn_id=context.turn_id, plan_id=plan_id,
+                    action_ids=action_ids, request_key=operation["operation_id"])
+            except Exception as error:
+                store.finish_operation(operation["operation_id"], status="unknown", result={"error": type(error).__name__})
+                raise
+            return _finish_invoice_result(context, target, service, tasks, invoice_id, month, operation["operation_id"], observed, result)
+
+    @tool(description="按用户本轮明确决定保存发票用途或备注；未提及的字段不传。空字符串表示明确清空。优先保留用户实际给出的文字；整理后的措辞可引用 source_quotes，并会在必要时由用户确认。用户条件由程序绑定并在提交时核对。")
+    def save_invoice(invoice_id: str, changes: dict, month: str | None = None, company_id: str | None = None,
+                     expected_fields: dict[str, str | None] | None = None, source_quotes: dict[str, str] | None = None,
+                     runtime: ToolRuntime[AgentContext] = None) -> dict:
+        _check_cancel(runtime)
+        with _services(runtime, company_id) as (context, target, service, tasks):
+            companies = company_aliases(tasks.database)
+            if not isinstance(changes, dict) or not changes or set(changes) - {"purpose", "remarks"}:
+                return {"status": "invalid_input", "summary": "只能修改用途或备注。"}
+            if any(value is not None and not isinstance(value, str) for value in changes.values()):
+                return {"status": "invalid_input", "summary": "用途或备注必须是文字。"}
+            confirmed = {field: _confirmed_proposal(context, target, invoice_id, field, value, "commit")
+                         for field, value in changes.items() if isinstance(value, str) and value.strip()}
+            preserved = [field for field in changes if not confirmed.get(field) and not write_requested(context.current_user_text, [invoice_id], [field], company_id=target, companies=companies)]
+            changes = {field: value for field, value in changes.items() if field not in preserved}
+            if not changes:
+                return {"status": "write_not_authorized", "summary": "本轮没有对这些字段作出保存决定，发票没有修改。", "preserved_fields": preserved}
+            current = service.read_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id, month=month)
+            if current.get("status") != "ok":
+                return current
+            quotes = source_quotes or {}
+            sources = {}
+            for field, value in changes.items():
+                if value is not None and value.strip():
+                    accepted = confirmed.get(field)
+                    if accepted and current["data"]["revision"] != accepted["revision"]:
+                        return {"status": "revision_conflict", "field": field, "summary": "票据在确认期间发生变化，请重新查看。"}
+                    sources[field] = ({"kind": "user_confirmed_proposal", "turn_id": context.turn_id, "quote": context.current_user_text,
+                                       "displayed_turn_id": accepted["displayed_turn_id"], "source_quote": accepted["source_quote"]}
+                                      if accepted else _value_source(context, tasks.database, target, invoice_id, field, value, quotes.get(field)))
+                    if not sources[field]:
+                        return _proposal(context, target, invoice_id, field, value, quotes.get(field), "commit", current["data"]["revision"])
+            accepted = next((item for item in confirmed.values() if item), None)
+            condition_text = accepted["original_instruction"] if accepted else context.current_user_text
+            conditional, condition = parsed_write_condition(condition_text, [invoice_id], company_id=target, companies=companies)
             if expected_fields:
                 if set(expected_fields) - {"purpose", "remarks"} or any(value is not None and not isinstance(value, str) for value in expected_fields.values()):
                     return {"status": "unsupported_precondition", "summary": "当前只能按用途或备注的明确原值判断；发票尚未修改。"}
-            if conditional and (not expected_fields or any(field not in expected_fields or (expected_fields[field] or "").strip() for field in empty_fields)):
-                return {"status": "precondition_required", "summary": "用户对保存提出了条件；请明确期望字段值并核对，发票尚未修改。"}
+            if conditional and condition is None:
+                return {"status": "precondition_required", "summary": "请准确确认用户提出的保存条件，发票尚未修改。"}
             if expected_fields:
-                differences = {field: {"expected": value, "current": current["data"].get(field)}
-                    for field, value in expected_fields.items()
-                    if (current["data"].get(field) or "").strip() != (value or "").strip()}
-                if differences:
-                    return {"status": "precondition_not_met", "summary": "当前内容不满足你提出的保存条件，发票没有修改。", "fields": differences}
+                extra = [{"field": field, "operator": "equals", "value": value} for field, value in expected_fields.items()]
+                if conditional:
+                    leaves = condition.get("conditions", [condition])
+                    if any(not any(leaf["field"] == field and leaf["operator"] == "empty" and not (value or "").strip()
+                                   for leaf in leaves) for field, value in expected_fields.items()):
+                        return {"status": "precondition_required", "summary": "提供的条件与用户原话不一致；发票尚未修改。"}
+                else:
+                    condition = extra[0] if len(extra) == 1 else {"operator": "all", "conditions": extra}
             month = month or current["data"]["issue_date"][:7]
             observed = context.observed_invoices.get((target, invoice_id))
             revision = observed["revision"] if observed is not None else current["data"]["revision"]
@@ -411,38 +729,22 @@ def make_agent_tools() -> list:
                 operation = store.get_or_create_operation(session_id=context.session_id, turn_id=context.turn_id, user_id=context.user_id, company_id=target, object_type="invoice", object_id=invoice_id, payload=payload, expected_revision=revision)
                 operation_id = operation["operation_id"]
                 revision = int(operation["expected_revision"])
+            actions = [{"field": field, "mode": "clear" if value is None or not value.strip() else "commit",
+                        "value": value, "value_source": sources.get(field), "condition": condition,
+                        "condition_quote": condition_text if conditional else None} for field, value in changes.items()]
             try:
-                result = tasks.save_invoice(user_id=context.user_id, company_id=target, invoice_id=invoice_id, month=month, changes=changes, expected_revision=revision, idempotency_key=operation_id)
+                plans = InvoicePlans(tasks.database)
+                plan = plans.prepare(user_id=context.user_id, company_id=target, invoice_id=invoice_id,
+                    session_id=context.session_id, turn_id=context.turn_id, user_message=context.current_user_text,
+                    intent_quote=context.current_user_text, expected_revision=revision, actions=actions)
+                result = plans.commit(user_id=context.user_id, company_id=target, session_id=context.session_id,
+                    turn_id=context.turn_id, plan_id=plan["plan_id"], action_ids=[item["action_id"] for item in plan["actions"]],
+                    request_key=operation_id)
             except Exception as error:
                 store.finish_operation(operation_id, status="unknown", result={"error": type(error).__name__})
                 raise
-            if result.get("status") == "committed":
-                store.finish_operation(operation_id, status="committed", result=result)
-            elif result.get("status") == "duplicate":
-                original_status = result.get("original_status")
-                replay_status = "committed" if original_status == "committed" else ("no_change" if original_status == "no_change" else "failed")
-                store.finish_operation(operation_id, status=replay_status, result=result)
-            elif result.get("status") == "no_change":
-                store.finish_operation(operation_id, status="no_change", result=result)
-            else:
-                store.finish_operation(operation_id, status="failed", result=result)
-            if result.get("status") in {"committed", "no_change"} or (result.get("status") == "duplicate" and result.get("original_status") == "committed"):
-                import sqlite3
-                try:
-                    business_operation = tasks.database.connection.execute(
-                        "SELECT operation_id FROM operations WHERE user_id=? AND company_id=? AND object_type='invoice' AND object_id=? AND idempotency_key=?",
-                        (context.user_id, target, invoice_id, operation_id),
-                    ).fetchone()
-                    source = result.get("result", {}) if result.get("status") == "duplicate" else result
-                    saved = source.get("after") or source.get("current") or {}
-                    TaskLedger(tasks.database).invoice_saved(user_id=context.user_id, company_id=target,
-                        session_id=context.session_id, turn_id=context.turn_id, invoice_id=invoice_id, fields=list(changes),
-                        task_id=(result.get("task") or {}).get("task_id"),
-                        source_operation_id=business_operation["operation_id"] if business_operation else None,
-                        saved_values={field: saved[field] for field in changes if field in saved})
-                except sqlite3.Error:
-                    result["task_memory_warning"] = "发票结果已保存或已核对，但任务记忆未刷新。"
-            _remember(context, target, invoice_id, month)
-            return _compact_for_user(result)
+            if preserved:
+                result["preserved_fields"] = preserved
+            return _finish_invoice_result(context, target, service, tasks, invoice_id, month, operation_id, observed, result)
 
-    return [query_finance, read_invoice, read_rule, list_missing_purposes, switch_company, task_create, task_list, task_get, task_resume, task_correct, task_complete, task_cancel, task_delete, update_task_memory, inspect_task_frontier, recall_task_turn, recall_task_state, plan_followup_questions, list_task_experiences, propose_task_strategy, set_task_strategy, preview_rule_impact, undo_saved_invoice, preference_list, preference_get, preference_create, preference_update, preference_delete, save_invoice]
+    return [query_finance, read_invoice, read_rule, list_missing_purposes, switch_company, task_create, task_list, task_get, task_resume, task_correct, task_complete, task_cancel, task_delete, update_task_memory, inspect_task_frontier, recall_task_turn, recall_tool_result, recall_task_state, plan_followup_questions, list_task_experiences, propose_task_strategy, set_task_strategy, preview_rule_impact, undo_saved_invoice, preference_list, preference_get, preference_create, preference_update, preference_delete, prepare_invoice_actions, commit_invoice_actions, save_invoice]

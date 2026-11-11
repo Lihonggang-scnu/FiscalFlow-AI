@@ -57,7 +57,7 @@ def model_context(base: str, snapshot: dict[str, Any], tools: list[dict], messag
         condensed = []
         tool_names = {item.name for item in compiled if isinstance(item, ToolMessage)}
         for message in compiled:
-            if isinstance(message, ToolMessage) and message.name in {"update_task_memory", "save_invoice", "query_finance", "list_missing_purposes", "read_rule", "plan_followup_questions"} and isinstance(message.content, str):
+            if isinstance(message, ToolMessage) and message.name in {"update_task_memory", "save_invoice", "prepare_invoice_actions", "commit_invoice_actions", "read_invoice", "query_finance", "list_missing_purposes", "read_rule", "plan_followup_questions"} and isinstance(message.content, str):
                 try:
                     value = json.loads(message.content)
                 except json.JSONDecodeError:
@@ -70,7 +70,13 @@ def model_context(base: str, snapshot: dict[str, Any], tools: list[dict], messag
                     elif message.name == "plan_followup_questions":
                         value.pop("frontier", None)
                         value["current_state_in_program_context"] = True
-                    elif message.name == "save_invoice":
+                    elif message.name == "prepare_invoice_actions":
+                        value = {key: value.get(key) for key in ("status", "plan_id", "invoice_id", "company_id", "summary") if key in value} | {
+                            "actions": [{key: action.get(key) for key in ("action_id", "field", "mode", "condition") if key in action}
+                                        for action in value.get("actions", [])]}
+                    elif message.name == "read_invoice" and isinstance(value.get("data"), dict):
+                        value["data"] = {key: value["data"].get(key) for key in ("company_id", "invoice_id", "issue_date", "seller_name", "project_name", "amount", "purpose", "remarks", "revision")}
+                    elif message.name in {"save_invoice", "commit_invoice_actions"}:
                         for key in ("before", "after", "current"):
                             if isinstance(value.get(key), dict):
                                 value[key] = {field: value[key].get(field) for field in ("company_id", "invoice_id", "purpose", "remarks", "revision")}
@@ -89,11 +95,8 @@ def model_context(base: str, snapshot: dict[str, Any], tools: list[dict], messag
                             if isinstance(section, dict):
                                 section.pop("rules", None)
                         if isinstance(invoice, dict) and isinstance(invoice.get("invoices"), list):
-                            if tool_names & {"read_invoice", "list_missing_purposes"}:
-                                invoice.pop("invoices")
-                            else:
-                                invoice["invoices"] = [{key: row.get(key) for key in ("invoice_id", "amount")}
-                                                       for row in invoice["invoices"]]
+                            invoice["invoices"] = [{key: row.get(key) for key in ("invoice_id", "amount")}
+                                                   for row in invoice["invoices"]]
                             invoice["details_shortened"] = True
                     elif message.name == "list_missing_purposes" and isinstance(value.get("data"), dict):
                         data = value["data"]
@@ -143,9 +146,9 @@ def model_context(base: str, snapshot: dict[str, Any], tools: list[dict], messag
             while end < len(compiled) and isinstance(compiled[end], ToolMessage):
                 end += 1
             results = compiled[index + 1:end]
-            later_call = any(isinstance(item, AIMessage) and item.tool_calls for item in compiled[end:])
-            foldable = {"read_invoice", "save_invoice", "update_task_memory"}
-            if not later_call or len(results) != len(message.tool_calls) or any(item.name not in foldable for item in results):
+            foldable = {"read_invoice", "read_rule", "save_invoice", "prepare_invoice_actions", "commit_invoice_actions",
+                        "update_task_memory", "task_create", "task_correct", "task_get", "task_resume"}
+            if len(results) != len(message.tool_calls) or any(item.name not in foldable for item in results):
                 index = end
                 continue
             summaries = []
@@ -156,10 +159,20 @@ def model_context(base: str, snapshot: dict[str, Any], tools: list[dict], messag
                     break
                 if not isinstance(value, dict):
                     break
-                summary = {"tool": item.name, "status": value.get("status"), "summary": value.get("summary", "")}
+                summary = {"tool": item.name, "result_ref": item.tool_call_id, "status": value.get("status"), "summary": value.get("summary", "")}
                 if item.name == "read_invoice" and isinstance(value.get("data"), dict):
                     summary["data"] = {key: value["data"].get(key) for key in ("company_id", "invoice_id", "issue_date", "seller_name", "project_name", "purpose", "remarks", "revision", "amount")}
-                if item.name == "save_invoice":
+                if item.name == "read_rule" and isinstance(value.get("rule"), dict):
+                    summary["rule"] = {key: value["rule"].get(key) for key in ("rule_id", "version", "name", "condition", "execution_summary")}
+                if item.name in {"task_create", "task_correct", "task_get", "task_resume"} and isinstance(value.get("task"), dict):
+                    summary["task"] = {key: value["task"].get(key) for key in
+                        ("task_id", "company_id", "month", "scope", "status", "target_invoice_ids", "pending_invoice_ids", "revision")}
+                if item.name == "prepare_invoice_actions":
+                    summary.update({key: value.get(key) for key in ("plan_id", "invoice_id", "company_id", "actions") if key in value})
+                if item.name in {"save_invoice", "commit_invoice_actions"}:
+                    for key in ("invoice_id", "plan_id", "action_ids", "written_fields", "preserved_fields", "drafted_fields", "deferred_fields"):
+                        if key in value:
+                            summary[key] = value[key]
                     for key in ("before", "after", "current"):
                         if key in value:
                             summary[key] = value[key]
@@ -169,10 +182,52 @@ def model_context(base: str, snapshot: dict[str, Any], tools: list[dict], messag
             if len(summaries) != len(results):
                 index = end
                 continue
+            later_plan_ids = set()
+            completed_plan_actions: dict[str, set[str]] = {}
+            for later in compiled[end:]:
+                if isinstance(later, ToolMessage) and later.name == "prepare_invoice_actions":
+                    try:
+                        later_value = json.loads(later.content)
+                    except (TypeError, json.JSONDecodeError):
+                        continue
+                    if later_value.get("status") == "prepared" and later_value.get("plan_id"):
+                        later_plan_ids.add(later_value["plan_id"])
+                elif isinstance(later, ToolMessage) and later.name == "commit_invoice_actions":
+                    try:
+                        later_value = json.loads(later.content)
+                    except (TypeError, json.JSONDecodeError):
+                        continue
+                    success = later_value.get("status") in {"committed", "no_change"} or (
+                        later_value.get("status") == "duplicate" and later_value.get("original_status") in {"committed", "no_change"})
+                    receipt = later_value.get("result", later_value)
+                    plan_id = later_value.get("plan_id") or receipt.get("plan_id")
+                    action_ids = later_value.get("action_ids") or receipt.get("action_ids") or []
+                    if success and plan_id:
+                        completed_plan_actions.setdefault(plan_id, set()).update(action_ids)
+            summaries = [summary for summary in summaries if not
+                         (summary["tool"] == "prepare_invoice_actions" and (
+                             summary.get("plan_id") in later_plan_ids or
+                             bool(summary.get("actions")) and {action.get("action_id") for action in summary["actions"]}
+                             <= completed_plan_actions.get(summary.get("plan_id"), set())))]
             state.setdefault("earlier_turn_tool_results", []).extend(summaries)
             compiled = compiled[:index] + compiled[end:]
             system = base + f"\n\n<{tag}>" + json.dumps(state, ensure_ascii=False) + f"</{tag}>"
             total = estimated_tokens({"system": system, "messages": messages_to_dict(compiled), "tools": tools})
+    if total > token_budget and state.get("earlier_turn_tool_results"):
+        for summary in state["earlier_turn_tool_results"]:
+            if summary.get("tool") == "read_invoice" and isinstance(summary.get("data"), dict):
+                data = summary["data"]
+                summary["data"] = {key: data.get(key) for key in ("company_id", "invoice_id", "revision") if key in data}
+                summary["omitted_fields"] = [key for key in data if key not in summary["data"]]
+            elif summary.get("tool") == "read_rule" and isinstance(summary.get("rule"), dict):
+                rule = summary["rule"]
+                summary["rule"] = {key: rule.get(key) for key in ("rule_id", "version", "name") if key in rule}
+                summary["omitted_fields"] = [key for key in rule if key not in summary["rule"]]
+            if not summary.get("summary"):
+                summary.pop("summary", None)
+        state["context_manifest"]["result_retrieval_tool"] = "recall_tool_result"
+        system = base + f"\n\n<{tag}>" + json.dumps(state, ensure_ascii=False) + f"</{tag}>"
+        total = estimated_tokens({"system": system, "messages": messages_to_dict(compiled), "tools": tools})
     if total > token_budget:
         raise ContextBudgetExceeded("当前对话和业务资料过长，请新建对话接续任务，或缩小本次处理范围。")
     return system, compiled

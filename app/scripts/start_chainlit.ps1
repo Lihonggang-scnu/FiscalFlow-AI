@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$PythonPath = $env:TAXHARNESS_PYTHON,
     [string]$Database = "artifacts/chainlit/live-business.sqlite3",
     [string]$AgentStore = "artifacts/agent/agent.sqlite3",

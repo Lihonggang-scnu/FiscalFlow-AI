@@ -27,7 +27,7 @@ class ProviderConfig:
     budget_usd: float = 2.0
     input_price_cny: float | None = 1.0
     output_price_cny: float | None = 4.0
-    context_budget_tokens: int = 16000
+    context_budget_tokens: int = 24000
     extra_body: dict = field(default_factory=dict)
 
 
@@ -74,7 +74,7 @@ def provider_config() -> ProviderConfig:
         budget_usd=float(values.get("budget_usd", 2)),
         input_price_cny=float(input_price) if input_price is not None else None,
         output_price_cny=float(output_price) if output_price is not None else None,
-        context_budget_tokens=int(values.get("context_budget_tokens", 16000)),
+        context_budget_tokens=int(values.get("context_budget_tokens", 24000)),
         extra_body=dict(values.get("extra_body", {})),
     )
 
@@ -125,6 +125,12 @@ def _peak_window(now: datetime) -> bool:
     local = now.astimezone(ZoneInfo("Asia/Shanghai"))
     clock = local.time().replace(tzinfo=None)
     return local.weekday() < 5 and (time(9) <= clock < time(12) or time(14) <= clock < time(18))
+
+
+def ledger_rates(input_price_cny: float, output_price_cny: float, provider_kind: str, now: datetime) -> tuple[float, float]:
+    """Use the shared ledger's established 0.3 units/CNY conversion and peak tariff."""
+    factor = 2 if provider_kind == "deepseek" and _peak_window(now) else 1
+    return float(input_price_cny) * 0.3 * factor, float(output_price_cny) * 0.3 * factor
 
 
 def _peak_authorized_now(now: datetime) -> bool:

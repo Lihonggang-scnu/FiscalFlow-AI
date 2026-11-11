@@ -1,0 +1,13 @@
+[provider]
+kind = "openai_compatible"
+model = "qwen3.7-flash"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key_env = "TAXHARNESS_API_KEY"
+timeout_seconds = 180
+max_output_tokens = 1600
+context_budget_tokens = 24000
+input_price_cny_per_million = 1.2
+output_price_cny_per_million = 4.8
+
+[provider.extra_body]
+enable_thinking = false

@@ -18,18 +18,19 @@ from pydantic import BaseModel, Field
 
 from ..agent import AgentRuntime, BatchGuardMiddleware, BudgetMiddleware, CancellationMiddleware
 from ..agent_store import AgentStore
-from ..agent_tools import AgentContext, _check_cancel
+from ..agent_tools import AgentContext, _check_cancel, _confirmed_proposal, _proposal
 from ..context_compiler import model_context
 from ..errors import SessionOwnershipError, TaxHarnessError
+from ..invoice_plans import _condition_met
 from ..services import TaxService
-from ..turn_intent import company_aliases, write_conditions, write_restricted
+from ..turn_intent import company_aliases, draft_write_restricted, parsed_write_condition, write_requested
 from .service import EnterpriseService
 from .storage import EnterpriseDatabase
 
 
 SYSTEM = """你是代账机构的财税办理助手，帮助当前登录用户处理企业工作台中的票据补充和复核。
 用户身份由系统提供，不能切换成其他人。先按当前企业和期间查工作项，再读取真实票据、草稿及状态；多个企业或票据不明确时先澄清。
-经办人回复生成的是待会计确认的草稿，不是已经保存的发票。用户要求更正草稿时，读取最新 draft_revision，再调用更正工具；用户明确要求保存/确认时才调用确认工具，结果以工具回执为准。
+经办人回复生成的是待会计确认的草稿，不是已经保存的发票。用户要求更正草稿时，读取最新 draft_revision，再调用更正工具；明确清空时用 clear_fields 指定用途或备注。用户明确要求保存/确认时才调用确认工具，结果以工具回执为准。
 用户明确提供了某张工作项发票的用途或备注而尚无草稿时，用 enterprise_create_draft 记录；如同一轮明确要求保存，创建草稿后直接确认，无需重复询问。
 确认保存后仍需按企业流程复核；不能把待复核说成工作项已完成。只读或复核角色不能借用会计权限。不可根据票面、销售方或金额编造用途。
 用户明确给出同一句话里的多个动作时按业务先后顺序执行；涉及切换企业时为各动作指定 company_id。回复简洁说明已完成、未完成和下一步，不默认输出内部编号或版本。
@@ -81,32 +82,60 @@ def make_enterprise_tools() -> list:
                 raise ValueError("当前企业没有该工作项。")
             return project_enterprise_work(database, user=actor, task_id=task_id)
 
+    @tool(description="查看工作项交接摘要：已完成、等待的人员和资料、最近变化、交付版本及下一步。")
+    def enterprise_handover(task_id: str | None = None, company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+        from .handover import build_handover
+
+        with _service(runtime, company_id) as (context, target, database, actor, _):
+            selected = task_id or context.active_work_item_id
+            task = database.connection.execute("SELECT company_id FROM enterprise_work_items WHERE task_id=?", (selected,)).fetchone()
+            if task is None or task["company_id"] != target:
+                raise ValueError("当前企业没有该工作项。")
+            return build_handover(database, user=actor, task_id=selected)
+
     @tool(description="为当前工作项中的一张发票记录用户明确提供的用途或备注草稿；不会修改发票。先检查工作项取得内部 invoice_id。")
     def enterprise_create_draft(invoice_id: str, purpose: str | None = None, remarks: str | None = None,
                                 task_id: str | None = None, company_id: str | None = None,
+                                clear_fields: list[str] | None = None,
                                 runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _service(runtime, company_id) as (context, target, database, actor, service):
             selected = task_id or context.active_work_item_id
             task = database.connection.execute("SELECT company_id FROM enterprise_work_items WHERE task_id=?", (selected,)).fetchone()
             if task is None or task["company_id"] != target:
                 raise ValueError("当前企业没有该工作项。")
+            link = database.connection.execute("SELECT source_invoice_id FROM enterprise_invoice_links WHERE company_id=? AND invoice_id=?", (target, invoice_id)).fetchone()
+            fields = [field for field, value in (("purpose", purpose), ("remarks", remarks)) if value is not None or field in (clear_fields or [])]
+            if draft_write_restricted(context.current_user_text, [invoice_id, link["source_invoice_id"] if link else None], fields,
+                                      company_id=target, companies=company_aliases(database)):
+                return {"status": "write_not_authorized", "summary": "本轮要求只查看，草稿没有修改。"}
+            if clear_fields and not any(word in context.current_user_text for word in ("清空", "清除", "置空", "删除", "删掉", "改为空", "改成空", "去掉")):
+                return {"status": "write_not_authorized", "summary": "请先明确需要清空的字段。"}
             return service.create_conversation_draft(user=actor, task_id=selected, invoice_id=invoice_id,
-                purpose=purpose, remarks=remarks, source_turn_id=context.turn_id, user_text=context.current_user_text)
+                purpose=purpose, remarks=remarks, source_turn_id=context.turn_id, user_text=context.current_user_text, clear_fields=clear_fields)
 
     @tool(description="更正已读取的企业草稿，不写发票。必须提供草稿最新 draft_revision；未提及的用途或备注保持原样，明确清空时使用空字符串。")
     def enterprise_correct_draft(draft_id: str, expected_draft_revision: int, purpose: str | None = None,
                                  remarks: str | None = None, invoice_id: str | None = None,
-                                 company_id: str | None = None, runtime: ToolRuntime[AgentContext] = None) -> dict:
+                                 company_id: str | None = None, clear_fields: list[str] | None = None,
+                                 runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _service(runtime, company_id) as (context, target, database, actor, service):
             draft = database.connection.execute("SELECT * FROM enterprise_drafts WHERE draft_id=? AND company_id=?", (draft_id, target)).fetchone()
             if draft is None:
                 raise ValueError("当前企业没有该草稿。")
-            if purpose is None and remarks is None and invoice_id is None:
+            if purpose is None and remarks is None and invoice_id is None and not clear_fields:
                 raise ValueError("请提供需要更正的字段或票据。")
+            link = database.connection.execute("SELECT source_invoice_id FROM enterprise_invoice_links WHERE company_id=? AND invoice_id=?", (target, draft["invoice_id"])).fetchone()
+            fields = [field for field, value in (("purpose", purpose), ("remarks", remarks)) if value is not None or field in (clear_fields or [])] or ["purpose", "remarks"]
+            if draft_write_restricted(context.current_user_text, [draft["invoice_id"], link["source_invoice_id"] if link else None], fields,
+                                      company_id=target, companies=company_aliases(database)):
+                return {"status": "write_not_authorized", "summary": "本轮要求只查看，草稿没有修改。"}
+            if clear_fields and not any(word in context.current_user_text for word in ("清空", "清除", "置空", "删除", "删掉", "改为空", "改成空", "去掉")):
+                return {"status": "write_not_authorized", "summary": "请先明确需要清空的字段。"}
             updated = service.update_draft(user=actor, draft_id=draft_id, invoice_id=invoice_id or draft["invoice_id"],
                 purpose=draft["proposed_purpose"] if purpose is None else purpose,
                 remarks=draft["proposed_remarks"] if remarks is None else remarks,
-                expected_draft_revision=expected_draft_revision, source_text=context.current_user_text, source_turn_id=context.turn_id)
+                expected_draft_revision=expected_draft_revision, source_text=context.current_user_text, source_turn_id=context.turn_id,
+                clear_fields=clear_fields)
             return {"status": "ok", "draft": service._decode_draft(updated), "invoice_written": False,
                     "summary": "草稿已更正，发票尚未修改。"}
 
@@ -118,26 +147,81 @@ def make_enterprise_tools() -> list:
             allowed = []
             blocked = []
             conditions = {}
+            selected_fields = {}
+            preserved_fields = {}
+            confirmation_records = {}
             companies = company_aliases(database)
             for draft_id in ids:
-                row = database.connection.execute("""SELECT d.invoice_id,d.proposed_purpose,d.proposed_remarks,l.source_invoice_id
+                row = database.connection.execute("""SELECT d.invoice_id,d.proposed_purpose,d.proposed_remarks,d.field_context_json,
+                    d.source_turn_id,d.draft_revision,l.source_invoice_id,i.revision AS invoice_revision,
+                    i.purpose AS current_purpose,i.remarks AS current_remarks
                     FROM enterprise_drafts d LEFT JOIN enterprise_invoice_links l USING(company_id,invoice_id)
+                    LEFT JOIN invoices i USING(company_id,invoice_id)
                     WHERE d.draft_id=? AND d.company_id=? LIMIT 1""", (draft_id, target)).fetchone()
                 if row is None:
                     raise ValueError("所选草稿不属于当前企业。")
                 fields = [field for field in ("purpose", "remarks") if row["proposed_" + field] is not None]
                 identifiers = [row["invoice_id"], row["source_invoice_id"]]
-                conditional, empty_fields = write_conditions(context.current_user_text, identifiers, company_id=target, companies=companies)
-                if write_restricted(context.current_user_text, identifiers, fields, company_id=target, companies=companies):
-                    blocked.append({"draft_id": draft_id, "status": "write_not_authorized", "summary": "你本轮要求查看或暂不保存，草稿尚未写入。"})
-                elif conditional and not empty_fields:
-                    blocked.append({"draft_id": draft_id, "status": "precondition_required", "summary": "请明确需要核对的用途或备注条件，草稿尚未写入。"})
-                else:
+                conditional_now, condition_now = parsed_write_condition(context.current_user_text, identifiers, company_id=target, companies=companies)
+                requested_now = [field for field in fields if write_requested(context.current_user_text, identifiers, [field], company_id=target, companies=companies)]
+                current_fields = {"purpose": row["current_purpose"], "remarks": row["current_remarks"], "revision": row["invoice_revision"]}
+                if conditional_now and condition_now and requested_now and not _condition_met(condition_now, current_fields):
                     allowed.append(draft_id)
+                    selected_fields[draft_id] = requested_now
+                    preserved_fields[draft_id] = [field for field in fields if field not in requested_now]
+                    conditions[draft_id] = condition_now
+                    continue
+                contexts = json.loads(row["field_context_json"] or "{}")
+                permitted, accepted = [], None
+                blocked_before = len(blocked)
+                for field in fields:
+                    value = row["proposed_" + field]
+                    confirmation = (_confirmed_proposal(context, target, row["invoice_id"], field, value, "commit") if value else None)
+                    if confirmation and (confirmation.get("draft_id") != draft_id or confirmation.get("draft_revision") != row["draft_revision"]):
+                        confirmation = None
+                    requested = confirmation or write_requested(context.current_user_text, identifiers, [field], company_id=target, companies=companies)
+                    if not requested:
+                        continue
+                    if confirmation and row["invoice_revision"] != confirmation["revision"]:
+                        blocked.append({"draft_id": draft_id, "status": "revision_conflict", "summary": "票据在确认期间发生变化，请重新查看。"})
+                        continue
+                    turn_id = contexts.get(field, {}).get("source_turn_id") or row["source_turn_id"]
+                    original = database.connection.execute("""SELECT content FROM enterprise_actor_messages
+                        WHERE turn_id=? AND user_id=? AND company_id=? LIMIT 1""", (turn_id, context.user_id, target)).fetchone() if turn_id else None
+                    field_context = contexts.get(field, {})
+                    grounded = (not value or value in context.current_user_text or (original and value in original["content"]) or
+                                (field_context.get("source_recorded") and value in field_context.get("evidence_quote", "")))
+                    if not grounded and not confirmation:
+                        pending = _proposal(context, target, row["invoice_id"], field, value, context.current_user_text,
+                                            "commit", row["invoice_revision"], display_invoice=row["source_invoice_id"])
+                        if pending.get("proposal"):
+                            pending["proposal"].update(draft_id=draft_id, draft_revision=row["draft_revision"])
+                        blocked.append({"draft_id": draft_id, **pending})
+                        continue
+                    permitted.append(field)
+                    accepted = confirmation or accepted
+                    if confirmation:
+                        confirmation_records.setdefault(draft_id, {})[field] = {
+                            "displayed_turn_id": confirmation["displayed_turn_id"], "prompt": confirmation["prompt"],
+                            "confirmed_turn_id": context.turn_id, "confirmation": context.current_user_text}
+                condition_text = accepted["original_instruction"] if accepted else context.current_user_text
+                conditional, condition = parsed_write_condition(condition_text, identifiers, company_id=target, companies=companies)
+                if not permitted and len(blocked) == blocked_before:
+                    blocked.append({"draft_id": draft_id, "status": "write_not_authorized", "summary": "你本轮要求查看或暂不保存，草稿尚未写入。"})
+                elif permitted and conditional and condition is None:
+                    blocked.append({"draft_id": draft_id, "status": "precondition_required", "summary": "请明确需要核对的用途或备注条件，草稿尚未写入。"})
+                elif permitted:
+                    allowed.append(draft_id)
+                    selected_fields[draft_id] = permitted
+                    preserved_fields[draft_id] = [field for field in fields if field not in permitted]
                     if conditional:
-                        conditions[draft_id] = {field: "" for field in empty_fields}
+                        conditions[draft_id] = condition
             result = service.confirm_drafts(user=actor, draft_ids=allowed,
-                expected_draft_revisions={draft.draft_id: draft.draft_revision for draft in drafts}, expected_fields_by_draft=conditions)
+                expected_draft_revisions={draft.draft_id: draft.draft_revision for draft in drafts},
+                fields_by_draft=selected_fields, conditions_by_draft=conditions,
+                source_confirmations_by_draft=confirmation_records)
+            for item in result["items"]:
+                item["preserved_fields"] = preserved_fields.get(item["draft_id"], [])
             if result["items"] and not result["confirmed"] and all(item["status"] == "precondition_not_met" for item in result["items"]):
                 result["status"] = "precondition_not_met"
                 result["summary"] = "当前内容不满足你提出的保存条件，发票没有修改。"
@@ -157,6 +241,24 @@ def make_enterprise_tools() -> list:
     def enterprise_read_attachment(attachment_id: str, page: int | None = None, company_id: str | None = None,
                                    runtime: ToolRuntime[AgentContext] = None) -> dict:
         with _service(runtime, company_id) as (context, target, database, _, _):
+            original = database.connection.execute("""SELECT session_id,task_id FROM enterprise_original_attachments
+                WHERE attachment_id=? AND company_id=? AND user_id=? AND source_kind='assistant_turn'""",
+                (attachment_id, target, context.user_id)).fetchone()
+            if original:
+                if original["task_id"] != context.active_work_item_id:
+                    raise ValueError("没有找到当前工作项下可读取的附件。")
+                from .reply_attachments import get_attachment
+                attachment = get_attachment(database, user={"user_id": context.user_id}, attachment_id=attachment_id)
+                prepared = attachment["prepared"] or {}
+                result = {"status": "ok", "attachment_id": attachment_id, "filename": attachment["filename"],
+                          "processing_status": attachment["processing_status"], "error": attachment["last_error_message"],
+                          "page_count": prepared.get("page_count"), **(attachment["recognized"] or {})}
+                if page is not None:
+                    pages = prepared.get("pages", [])
+                    if page < 1 or page > len(pages):
+                        raise ValueError("PDF 页码超出范围。")
+                    result["page_text"] = pages[page - 1].get("text", "")
+                return result
             row = database.connection.execute("""SELECT extracted_json FROM enterprise_assistant_attachments
                 WHERE attachment_id=? AND company_id=? AND task_id=? AND user_id=?""",
                 (attachment_id, target, context.active_work_item_id, context.user_id)).fetchone()
@@ -181,7 +283,7 @@ def make_enterprise_tools() -> list:
                 context.active_work_item_id = None
             return {"status": "ok", "current_company_id": target, "summary": "当前办理企业已切换。"}
 
-    return [enterprise_list_work_items, enterprise_inspect_work_item, enterprise_create_draft, enterprise_correct_draft,
+    return [enterprise_list_work_items, enterprise_inspect_work_item, enterprise_handover, enterprise_create_draft, enterprise_correct_draft,
             enterprise_confirm_drafts, enterprise_finance_summary, enterprise_read_attachment, enterprise_switch_company]
 
 
@@ -289,14 +391,32 @@ class EnterpriseAgentRuntime(AgentRuntime):
                 with EnterpriseDatabase(context.database_path) as database:
                     actor = _actor(database, context.user_id)
                     for reference in call.get("args", {}).get("drafts", []):
+                        draft = database.connection.execute("SELECT company_id,invoice_id FROM enterprise_drafts WHERE draft_id=?", (reference.get("draft_id"),)).fetchone()
+                        if draft is None:
+                            items.append({"draft_id": reference.get("draft_id"), "status": "no_receipt"})
+                            continue
+                        EnterpriseService(database)._role(actor, draft["company_id"], {"accountant", "reviewer"})
+                        TaxService(database).require_access(user_id=context.user_id, company_id=draft["company_id"])
                         row = database.connection.execute("SELECT * FROM enterprise_confirmation_receipts WHERE draft_id=?", (reference.get("draft_id"),)).fetchone()
+                        if row is None:
+                            row = database.connection.execute("""SELECT r.* FROM enterprise_confirmation_receipts r JOIN operations o
+                                ON o.idempotency_key=r.operation_id AND o.company_id=r.company_id AND o.object_id=r.invoice_id
+                                WHERE o.user_id=? AND o.company_id=? AND json_extract(o.result_json,'$.draft_id')=?
+                                AND json_extract(o.result_json,'$.confirmed_draft_revision')=? ORDER BY r.created_at DESC LIMIT 1""",
+                                (context.user_id, draft["company_id"], reference.get("draft_id"), reference.get("draft_revision"))).fetchone()
                         if row is None:
                             items.append({"draft_id": reference.get("draft_id"), "status": "no_receipt"})
                             continue
-                        EnterpriseService(database)._role(actor, row["company_id"], {"accountant", "reviewer"})
-                        TaxService(database).require_access(user_id=context.user_id, company_id=row["company_id"])
+                        original = json.loads(row["result_json"])
+                        if original.get("confirmed_draft_revision") != reference.get("draft_revision"):
+                            items.append({"draft_id": reference.get("draft_id"), "status": "draft_conflict"})
+                            continue
                         current = TaxService(database).read_invoice(user_id=context.user_id, company_id=row["company_id"], invoice_id=row["invoice_id"])
-                        items.append({"draft_id": row["draft_id"], "status": "committed", "result": json.loads(row["result_json"]), "current": current.get("data")})
+                        fields = original.get("confirmed_fields") or [field for field in ("purpose", "remarks") if original.get("before", {}).get(field) != original.get("after", {}).get(field)]
+                        matches = current.get("status") == "ok" and all(current["data"].get(field) == original.get("after", {}).get(field) for field in fields)
+                        items.append({"draft_id": reference.get("draft_id"), "status": "duplicate" if matches else "duplicate_changed",
+                                      "original_status": original.get("status"), "result": original, "current": current.get("data"),
+                                      "current_matches_receipt": matches})
                 payload = {"status": "recovered", "items": items, "summary": "已核对确认回执；未找到回执的项目请先刷新工作项。"}
                 context.recovered_operations.append(payload)
             recovered.append(ToolMessage(content=json.dumps(payload, ensure_ascii=False), tool_call_id=call["id"], name=call["name"]))

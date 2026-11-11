@@ -111,8 +111,11 @@ class TaxService:
                 "company_id": company_id,
                 "month": month,
                 "record_count": len(rows),
+                "income_record_count": sum(row["direction"] == "收入" for row in rows),
+                "expense_record_count": sum(row["direction"] == "支出" for row in rows),
                 "income": cents_to_text(income),
                 "expense": cents_to_text(expense),
+                "invoice_matching": "not_available",
                 "no_records": not rows,
                 "rules": [applicable_rule(self.database.connection, kind="bank_requirements", company_id=company_id, month=month)],
             },
@@ -187,64 +190,55 @@ class TaxService:
             return {"status": "invalid_input", "summary": "expected_revision 必须是正整数。"}
         if not self._valid_idempotency_key(idempotency_key, user_id, company_id, invoice_id):
             return {"status": "invalid_idempotency_key", "summary": "幂等键必须绑定用户、企业和发票。"}
-        clean_changes = {key: _clean_text(value) for key, value in changes.items()}
-        payload = {"changes": clean_changes, "expected_revision": expected_revision}
-        clean_payload = safe_case_json(payload)
-        payload_hash = hashlib.sha256(json.dumps(clean_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
         connection = self.database.connection
         connection.execute("BEGIN IMMEDIATE")
         try:
-            prior = connection.execute(
-                """SELECT * FROM operations WHERE user_id=? AND company_id=? AND object_type='invoice'
-                   AND object_id=? AND idempotency_key=?""",
-                (user_id, company_id, invoice_id, idempotency_key),
-            ).fetchone()
-            if prior is not None:
-                if prior["payload_hash"] != payload_hash:
-                    result = {"status": "idempotency_conflict", "summary": "同一幂等键已用于不同 payload，拒绝重放。"}
-                    connection.rollback()
-                    return result
-                original = json.loads(prior["result_json"])
-                connection.rollback()
-                return {"status": "duplicate", "replayed": True, "original_status": prior["status"], "result": original}
-            current = connection.execute(
-                "SELECT * FROM invoices WHERE company_id=? AND invoice_id=?", (company_id, invoice_id)
-            ).fetchone()
-            if current is None:
-                result = {"status": "not_found", "summary": "未找到该企业下的发票。"}
-                self._record_operation(connection, user_id, company_id, invoice_id, idempotency_key, payload_hash, result["status"], result, "update_rejected", payload)
-                connection.commit()
-                return result
-            if current["revision"] != expected_revision:
-                result = {"status": "revision_conflict", "summary": "发票版本已变化，拒绝覆盖最新数据。", "current_revision": current["revision"], "expected_revision": expected_revision}
-                self._record_operation(connection, user_id, company_id, invoice_id, idempotency_key, payload_hash, result["status"], result, "update_rejected", payload)
-                connection.commit()
-                return result
-            old = dict(current)
-            purpose = clean_changes.get("purpose", old["purpose"])
-            remarks = clean_changes.get("remarks", old["remarks"])
-            if purpose == old["purpose"] and remarks == old["remarks"]:
-                result = {"status": "no_change", "committed": False, "summary": "当前已经是这个值，本次无需再修改。", "current": _invoice_view(old)}
-                self._record_operation(connection, user_id, company_id, invoice_id, idempotency_key, payload_hash, result["status"], result, "update_noop", payload)
-                connection.commit()
-                return result
-            connection.execute(
-                "UPDATE invoices SET purpose=?,remarks=?,revision=revision+1 WHERE company_id=? AND invoice_id=? AND revision=?",
-                (purpose, remarks, company_id, invoice_id, expected_revision),
-            )
-            after_row = connection.execute(
-                "SELECT * FROM invoices WHERE company_id=? AND invoice_id=?", (company_id, invoice_id)
-            ).fetchone()
-            if after_row is None or after_row["revision"] != expected_revision + 1:
-                raise RuntimeError("保存后回查失败。")
-            after = _invoice_view(dict(after_row))
-            result = {"status": "committed", "committed": True, "replayed": False, "before": _invoice_view(old), "after": after, "rechecked": True}
-            self._record_operation(connection, user_id, company_id, invoice_id, idempotency_key, payload_hash, result["status"], result, "update_invoice", payload)
+            result = self._update_invoice_in_transaction(user_id=user_id, company_id=company_id, invoice_id=invoice_id,
+                changes=changes, expected_revision=expected_revision, idempotency_key=idempotency_key)
             connection.commit()
             return result
         except Exception:
             connection.rollback()
             raise
+
+    def _update_invoice_in_transaction(self, *, user_id: str, company_id: str, invoice_id: str,
+                                       changes: dict[str, Any], expected_revision: int, idempotency_key: str) -> dict:
+        """Apply one scoped update inside the caller's transaction, including its receipt."""
+        connection = self.database.connection
+        self._permission(user_id, company_id, modify=True)
+        clean_changes = {key: _clean_text(value) for key, value in changes.items()}
+        payload = {"changes": clean_changes, "expected_revision": expected_revision}
+        payload_hash = hashlib.sha256(json.dumps(safe_case_json(payload), ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+        prior = connection.execute("""SELECT * FROM operations WHERE user_id=? AND company_id=? AND object_type='invoice'
+            AND object_id=? AND idempotency_key=?""", (user_id, company_id, invoice_id, idempotency_key)).fetchone()
+        if prior is not None:
+            if prior["payload_hash"] != payload_hash:
+                return {"status": "idempotency_conflict", "summary": "同一幂等键已用于不同 payload，拒绝重放。"}
+            return {"status": "duplicate", "replayed": True, "original_status": prior["status"], "result": json.loads(prior["result_json"])}
+        current = connection.execute("SELECT * FROM invoices WHERE company_id=? AND invoice_id=?", (company_id, invoice_id)).fetchone()
+        if current is None:
+            result = {"status": "not_found", "summary": "未找到该企业下的发票。"}
+            action = "update_rejected"
+        elif current["revision"] != expected_revision:
+            result = {"status": "revision_conflict", "summary": "发票版本已变化，拒绝覆盖最新数据。", "current_revision": current["revision"], "expected_revision": expected_revision}
+            action = "update_rejected"
+        else:
+            old = dict(current)
+            purpose = clean_changes.get("purpose", old["purpose"])
+            remarks = clean_changes.get("remarks", old["remarks"])
+            if purpose == old["purpose"] and remarks == old["remarks"]:
+                result = {"status": "no_change", "committed": False, "summary": "当前已经是这个值，本次无需再修改。", "current": _invoice_view(old)}
+                action = "update_noop"
+            else:
+                connection.execute("UPDATE invoices SET purpose=?,remarks=?,revision=revision+1 WHERE company_id=? AND invoice_id=? AND revision=?",
+                    (purpose, remarks, company_id, invoice_id, expected_revision))
+                after_row = connection.execute("SELECT * FROM invoices WHERE company_id=? AND invoice_id=?", (company_id, invoice_id)).fetchone()
+                if after_row is None or after_row["revision"] != expected_revision + 1:
+                    raise RuntimeError("保存后回查失败。")
+                result = {"status": "committed", "committed": True, "replayed": False, "before": _invoice_view(old), "after": _invoice_view(dict(after_row)), "rechecked": True}
+                action = "update_invoice"
+        self._record_operation(connection, user_id, company_id, invoice_id, idempotency_key, payload_hash, result["status"], result, action, payload)
+        return result
 
     @staticmethod
     def _valid_idempotency_key(key: str, user_id: str, company_id: str, invoice_id: str) -> bool:

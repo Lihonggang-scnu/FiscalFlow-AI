@@ -291,6 +291,16 @@ class AgentStore:
             ).fetchone()
             return dict(row) if row is not None else None
 
+    def find_operation_by_payload(self, *, session_id: str, turn_id: str, user_id: str, company_id: str,
+                                  object_type: str, object_id: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+        payload_json = json.dumps(safe_case_json(payload), ensure_ascii=False, sort_keys=True)
+        payload_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+        with self._connect() as connection:
+            row = connection.execute("""SELECT * FROM agent_operations WHERE session_id=? AND turn_id=? AND user_id=?
+                AND company_id=? AND object_type=? AND object_id=? AND payload_hash=? ORDER BY created_at DESC LIMIT 1""",
+                (session_id, turn_id, user_id, company_id, object_type, object_id, payload_hash)).fetchone()
+            return dict(row) if row else None
+
     def operation_for_turn(self, *, session_id: str, turn_id: str, user_id: str, company_id: str, object_type: str, object_id: str) -> dict[str, Any] | None:
         return self.find_operation(session_id=session_id, turn_id=turn_id, user_id=user_id, company_id=company_id, object_type=object_type, object_id=object_id)
 

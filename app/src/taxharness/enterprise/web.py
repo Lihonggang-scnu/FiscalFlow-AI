@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import sqlite3
 import tempfile
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
@@ -13,7 +15,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Streamin
 from httpx import HTTPError as HttpError
 from starlette.concurrency import run_in_threadpool
 
-from ..errors import TaxHarnessError
+from ..errors import PermissionDeniedError, TaxHarnessError
 from ..agent_store import AgentStore
 from ..conversation_history import companies_used
 from ..preferences import PreferenceManager, PreferenceStore
@@ -25,7 +27,9 @@ from .auth import (
     SESSION_COOKIE, admin_count, create_first_admin, create_user, current_user, login,
     refresh_csrf, require_csrf, reset_password, revoke_session, set_session_cookie,
 )
-from .imports import ImportManager
+from .imports import IdentityReviewConflict, ImportConflictChanged, ImportManager
+from .professional import (ProfessionalConflict, available_sources, correct_fact, list_facts,
+                           preview_method, publish_method, record_fact, review_basis, withdraw_fact)
 from .service import EnterpriseService
 from .storage import EnterpriseDatabase, utc_now
 
@@ -38,7 +42,8 @@ INDEX_FILE = Path(__file__).resolve().parent / "static" / "index.html"
 
 def create_app(*, database_path: str | Path | None = None, agent_store_path: str | Path | None = None, model=None,
                assistant_model=None, vision_model=None, cookie_secure: bool | None = None) -> FastAPI:
-    app = FastAPI(title="TaxAgentHarness Enterprise", version="0.1.0", docs_url="/api/docs", redoc_url=None)
+    from .extraction_http import extraction_lifespan
+    app = FastAPI(title="FiscalFlow 企业票据工作台", version="2.0.0", docs_url="/api/docs", redoc_url=None, lifespan=extraction_lifespan)
     app.state.enterprise_database = str(Path(database_path or os.getenv("TAXHARNESS_ENTERPRISE_DATABASE", str(DEFAULT_DATABASE))).expanduser().resolve())
     app.state.agent_store = str(Path(agent_store_path or os.getenv("TAXHARNESS_AGENT_STORE", str(DEFAULT_LEDGER))).expanduser().resolve())
     app.state.enterprise_model = model
@@ -62,10 +67,14 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     def fail(error: Exception):
         if isinstance(error, HTTPException):
             raise error
-        if isinstance(error, PermissionError):
+        if isinstance(error, (PermissionError, PermissionDeniedError)):
             raise HTTPException(status_code=403, detail=str(error)) from error
         if isinstance(error, (ValueError, TaxHarnessError)):
             raise HTTPException(status_code=400, detail=str(error)) from error
+        if isinstance(error, (IdentityReviewConflict, ImportConflictChanged)):
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        if isinstance(error, ProfessionalConflict):
+            raise HTTPException(status_code=409, detail=str(error)) from error
         if isinstance(error, RuntimeError):
             raise HTTPException(status_code=503, detail=str(error)) from error
         if isinstance(error, sqlite3.OperationalError):
@@ -229,6 +238,21 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
         except Exception as error:
             fail(error)
 
+    @app.get("/api/import-source-policy")
+    def import_source_policy(company_id: str, source_system: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return ImportManager(database).source_policy(user=state[0], company_id=company_id, source_system=source_system)
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/import-source-policy")
+    def update_import_source_policy(payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return ImportManager(database).set_source_policy(user=actor, company_id=payload.get("company_id", ""),
+                source_system=payload.get("source_system", ""), mode=payload.get("mode", ""), expected_revision=payload.get("expected_revision"))
+        except Exception as error:
+            fail(error)
+
     @app.post("/api/invoices/import/columns")
     async def import_columns(company_id: str = Form(...), file: UploadFile = File(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         content = await file.read(32 * 1024 * 1024 + 1)
@@ -259,6 +283,213 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
         except Exception as error:
             fail(error)
 
+    @app.get("/api/identity-reviews")
+    def identity_reviews(company_id: str, status: str = "pending", page: int = 1, page_size: int = 50,
+                         state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return ImportManager(database).list_identity_reviews(user=state[0], company_id=company_id,
+                                                                  status=status, page=page, page_size=page_size)
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/identity-reviews/{identity_review_id}")
+    def identity_review_detail(identity_review_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return ImportManager(database).identity_review_detail(user=state[0], identity_review_id=identity_review_id)
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/identity-reviews/{identity_review_id}/original")
+    def identity_review_original(identity_review_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            original = ImportManager(database).identity_review_original(user=state[0], identity_review_id=identity_review_id)
+            if original is None:
+                raise HTTPException(status_code=404, detail="这条历史导入没有保存原始文件。")
+            filename, _media_type, file_hash, content = original
+            return Response(content=content, media_type="application/octet-stream", headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}",
+                "X-Content-SHA256": file_hash,
+                "X-Content-Type-Options": "nosniff",
+            })
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/source-documents/{document_id}/original")
+    def source_document_original(document_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            original = ImportManager(database).source_document_original(user=state[0], document_id=document_id)
+            if original is None:
+                raise HTTPException(status_code=404, detail="这条历史导入没有保存原始文件。")
+            filename, _media_type, file_hash, content = original
+            return Response(content=content, media_type="application/octet-stream", headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}",
+                "X-Content-SHA256": file_hash,
+                "X-Content-Type-Options": "nosniff",
+            })
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/identity-reviews/{identity_review_id}/resolve")
+    def identity_review_resolve(identity_review_id: str, payload: dict = Body(...),
+                                actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return ImportManager(database).resolve_identity_review(
+                user=actor, identity_review_id=identity_review_id, action=payload.get("action", ""),
+                expected_revision=payload.get("expected_revision"), command_id=payload.get("command_id", ""),
+                invoice_id=payload.get("invoice_id"), reason=payload.get("reason", ""),
+            )
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/professional/review-basis")
+    def professional_review_basis(company_id: str, period: str, invoice_ids: list[str] | None = Query(None),
+                                  state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return review_basis(database, user=state[0], company_id=company_id, period=period, invoice_ids=invoice_ids)
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/professional/sources")
+    def professional_sources(company_id: str, period: str, state=Depends(get_actor),
+                            database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return available_sources(database, user=state[0], company_id=company_id, period=period,
+                                     attachment_root=app.state.assistant_state_dir / "uploads")
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/professional/facts")
+    def professional_facts(company_id: str, period: str, invoice_id: str | None = None,
+                           state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return list_facts(database, user=state[0], company_id=company_id, period=period, invoice_id=invoice_id)
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/professional/facts/{fact_id}/source")
+    def professional_fact_source(fact_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            actor = state[0]
+            fact = database.connection.execute("SELECT * FROM enterprise_professional_facts WHERE fact_id=?", (fact_id,)).fetchone()
+            if fact is None or fact["source_type"] != "assistant_attachment":
+                raise ValueError("该事实没有可直接打开的对话附件。")
+            EnterpriseService(database)._role(actor, fact["company_id"], {"accountant", "reviewer"})
+            TaxService(database).require_access(user_id=actor["user_id"], company_id=fact["company_id"])
+            stored = database.connection.execute("""SELECT * FROM enterprise_original_attachments
+                WHERE attachment_id=? AND company_id=?""", (fact["source_id"], fact["company_id"])).fetchone()
+            if stored:
+                content = bytes(stored["original_content"])
+                if hashlib.sha256(content).hexdigest() != fact["source_version"].split(":", 1)[0]:
+                    raise ValueError("原始附件不可用或已发生变化。")
+                return Response(content=content, media_type=stored["media_type"],
+                    headers={"Content-Disposition": "inline; filename*=UTF-8''" + quote(stored["filename"])})
+            attachment = database.connection.execute("""SELECT * FROM enterprise_assistant_attachments
+                WHERE attachment_id=? AND company_id=?""", (fact["source_id"], fact["company_id"])).fetchone()
+            if attachment is None:
+                raise ValueError("原始附件当前不可用。")
+            root = (app.state.assistant_state_dir / "uploads").resolve()
+            path = (root / attachment["stored_name"]).resolve()
+            if path.parent != root or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != fact["source_version"]:
+                raise ValueError("原始附件不可用或已发生变化。")
+            return FileResponse(path, media_type=attachment["mime"], filename=attachment["filename"], content_disposition_type="inline")
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/professional/facts")
+    def professional_fact_create(payload: dict = Body(...), actor=Depends(get_mutating_actor),
+                                 database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return record_fact(database, user=actor, company_id=payload.get("company_id", ""),
+                period=payload.get("period", ""), fact_type=payload.get("fact_type", ""),
+                fact_text=payload.get("fact_text", ""), source_type=payload.get("source_type", ""),
+                source_id=payload.get("source_id", ""), source_quote=payload.get("source_quote", ""),
+                invoice_ids=payload.get("invoice_ids", []), command_id=payload.get("command_id", ""),
+                attachment_root=app.state.assistant_state_dir / "uploads")
+        except Exception as error:
+            fail(error)
+
+    @app.patch("/api/professional/facts/{fact_id}")
+    def professional_fact_correct(fact_id: str, payload: dict = Body(...), actor=Depends(get_mutating_actor),
+                                  database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return correct_fact(database, user=actor, fact_id=fact_id, invoice_id=payload.get("invoice_id", ""),
+                expected_revision=payload.get("expected_revision"), command_id=payload.get("command_id", ""),
+                fact_text=payload.get("fact_text", ""), reason=payload.get("reason", ""))
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/professional/facts/{fact_id}/withdraw")
+    def professional_fact_withdraw(fact_id: str, payload: dict = Body(...), actor=Depends(get_mutating_actor),
+                                   database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return withdraw_fact(database, user=actor, fact_id=fact_id, invoice_id=payload.get("invoice_id", ""),
+                expected_revision=payload.get("expected_revision"), command_id=payload.get("command_id", ""),
+                reason=payload.get("reason", ""))
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/professional/methods/preview")
+    def professional_method_preview(payload: dict = Body(...), state=Depends(get_actor),
+                                    database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return preview_method(database, user=state[0], company_id=payload.get("company_id", ""),
+                period=payload.get("period", ""), method_name=payload.get("method_name", ""),
+                criteria=payload.get("criteria", {}))
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/professional/methods/publish")
+    def professional_method_publish(payload: dict = Body(...), actor=Depends(get_mutating_actor),
+                                    database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            return publish_method(database, user=actor, company_id=payload.get("company_id", ""),
+                period=payload.get("period", ""), method_name=payload.get("method_name", ""),
+                criteria=payload.get("criteria", {}), expected_version=payload.get("expected_version"),
+                preview_token=payload.get("preview_token", ""), command_id=payload.get("command_id", ""))
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/autonomy-policy")
+    def autonomy_current(company_id: str, period: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .autonomy_policy import AutonomyPolicyService
+            return AutonomyPolicyService(database).current(user=state[0], company_id=company_id, period=period)
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/autonomy-policy/preview")
+    def autonomy_preview(payload: dict = Body(...), state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .autonomy_policy import AutonomyPolicyService
+            return AutonomyPolicyService(database).preview(user=state[0], company_id=payload.get("company_id", ""),
+                period=payload.get("period", ""), policy=payload.get("policy", {}))
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/autonomy-policy/publish")
+    def autonomy_publish(payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .autonomy_policy import AutonomyPolicyService
+            return AutonomyPolicyService(database).publish(user=actor, company_id=payload.get("company_id", ""),
+                period=payload.get("period", ""), expected_version=payload.get("expected_version"),
+                preview=payload.get("preview", {}), operation_id=payload.get("operation_id"))
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/autonomy-policy/action")
+    def autonomy_action(payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .autonomy_policy import AutonomyPolicyService
+            service = AutonomyPolicyService(database)
+            action = payload.get("action")
+            if action not in {"pause", "resume", "revoke"}:
+                raise ValueError("请选择暂停、恢复或撤回。")
+            return getattr(service, action)(user=actor, company_id=payload.get("company_id", ""),
+                period=payload.get("period", ""), expected_version=payload.get("expected_version"),
+                operation_id=payload.get("operation_id"))
+        except Exception as error:
+            fail(error)
+
     @app.get("/api/imports")
     def imports_list(company_id: str, page: int = 1, page_size: int = 50, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
@@ -274,7 +505,10 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     def conflicts(company_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
             EnterpriseService(database)._role(state[0], company_id, {"accountant", "reviewer"})
-            rows = database.connection.execute("SELECT * FROM enterprise_import_conflicts WHERE company_id=? AND status='open' ORDER BY created_at", (company_id,)).fetchall()
+            rows = database.connection.execute("""SELECT c.*,i.revision AS current_revision,
+                CASE c.field_name WHEN 'purpose' THEN i.purpose WHEN 'remarks' THEN i.remarks END AS live_value
+                FROM enterprise_import_conflicts c JOIN invoices i USING(company_id,invoice_id)
+                WHERE c.company_id=? AND c.status='open' ORDER BY c.created_at""", (company_id,)).fetchall()
             return {"items": [dict(row) for row in rows]}
         except Exception as error:
             fail(error)
@@ -282,7 +516,8 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     @app.post("/api/imports/conflicts/{conflict_id}/resolve")
     def conflict_resolve(conflict_id: str, payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
-            return ImportManager(database).resolve_conflict(user=actor, conflict_id=conflict_id, resolution=payload.get("resolution", ""))
+            return ImportManager(database).resolve_conflict(user=actor, conflict_id=conflict_id, resolution=payload.get("resolution", ""),
+                                                           expected_revision=payload.get("expected_revision"))
         except Exception as error:
             fail(error)
 
@@ -322,10 +557,19 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
             fail(error)
 
     @app.get("/api/work-items/{task_id}/projection")
-    def work_item_projection(task_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+    def work_item_projection(task_id: str, include_review_basis: bool = True, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
             from .work_projection import project_enterprise_work
-            return project_enterprise_work(database, user=state[0], task_id=task_id)
+            return project_enterprise_work(database, user=state[0], task_id=task_id, include_review_basis=include_review_basis)
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/work-items/{task_id}/handover")
+    def work_item_handover(task_id: str, include_projection: bool = False, detail_page: int | None = None,
+                           state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .handover import build_handover
+            return build_handover(database, user=state[0], task_id=task_id, include_projection=include_projection, detail_page=detail_page)
         except Exception as error:
             fail(error)
 
@@ -395,6 +639,77 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
         except Exception as error:
             fail(error)
 
+    @app.post("/api/requests/{request_id}/reply-with-files")
+    async def request_reply_with_files(request_id: str, reply_text: str = Form(""), idempotency_key: str = Form(...),
+                                       files: list[UploadFile] = File(default=[]), actor=Depends(get_mutating_actor),
+                                       database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .reply_attachments import submit_reply_with_attachments
+            if len(files) > 10:
+                raise ValueError("一次最多上传 10 个文件。")
+            uploads = []
+            for file in files:
+                content = await file.read(32 * 1024 * 1024 + 1)
+                uploads.append((file.filename or "上传文件", content))
+            return submit_reply_with_attachments(database, user=actor, request_id=request_id, reply_text=reply_text,
+                                                 files=uploads, idempotency_key=idempotency_key)
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/responses/{response_id}/attachments")
+    def response_attachments(response_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .reply_attachments import list_reply_attachments
+            items = list_reply_attachments(database, user=state[0], response_id=response_id)
+            return {"items": [{key: item.get(key) for key in ("attachment_id", "filename", "media_type", "processing_status",
+                            "page_count", "last_error_code", "last_error_message", "result_revision")} for item in items]}
+        except Exception as error:
+            fail(error)
+
+    @app.get("/api/attachments/{attachment_id}/original")
+    def original_attachment(attachment_id: str, state=Depends(get_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .reply_attachments import get_attachment
+            attachment = get_attachment(database, user=state[0], attachment_id=attachment_id, include_original=True)
+            content = attachment["original_content"]
+            if hashlib.sha256(content).hexdigest() != attachment["sha256"]:
+                raise ValueError("附件原件校验失败，请联系管理员恢复。")
+            return Response(content=content, media_type=attachment["media_type"],
+                            headers={"Content-Disposition": "inline; filename*=UTF-8''" + quote(attachment["filename"])})
+        except Exception as error:
+            fail(error)
+
+    @app.post("/api/attachments/{attachment_id}/retry")
+    def retry_original_attachment(attachment_id: str, actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
+        try:
+            from .extraction_queue import ExtractionQueue
+            from .reply_attachments import get_attachment, reset_attachment_for_retry, retry_attachment
+            attachment = get_attachment(database, user=actor, attachment_id=attachment_id)
+            is_reply = attachment["source_kind"] == "reply"
+            EnterpriseService(database)._role(actor, attachment["company_id"], {"accountant"} if is_reply else {"accountant", "reviewer"})
+            TaxService(database).require_access(user_id=actor["user_id"], company_id=attachment["company_id"], modify=is_reply)
+            if attachment["processing_status"] == "complete":
+                return {"status": "complete", "attachment": attachment}
+            if attachment["source_kind"] == "reply":
+                reset_attachment_for_retry(database, user=actor, attachment_id=attachment_id)
+                queue = ExtractionQueue(database)
+                prior = database.connection.execute("""SELECT x.*,m.mandate_id FROM enterprise_extraction_runs x
+                    LEFT JOIN enterprise_mandate_extractions m USING(run_id) WHERE x.response_id=? ORDER BY x.created_at DESC LIMIT 1""",
+                    (attachment["response_id"],)).fetchone()
+                if prior and prior["state"] in {"failed", "cancelled"} and prior["created_by"] == actor["user_id"] and not prior["mandate_id"]:
+                    run = queue.retry(user=actor, run_id=prior["run_id"])
+                else:
+                    run = queue.enqueue(user=actor, response_id=attachment["response_id"])
+                return {"status": "queued", "run": run}
+            live_enabled = os.getenv("TAXHARNESS_ENTERPRISE_LIVE_MODEL_ENABLED", "false").lower() == "true"
+            budget_path = os.getenv("TAXHARNESS_ENTERPRISE_BUDGET")
+            budget_limit = _budget_limit(_budget_config(budget_path)) if app.state.enterprise_vision_model is None and live_enabled else None
+            result = retry_attachment(database, user=actor, attachment_id=attachment_id, model=app.state.enterprise_vision_model,
+                live_authorized=live_enabled, budget_ledger_path=app.state.agent_store, budget_usd=budget_limit)
+            return {"status": result["processing_status"], "attachment": result}
+        except Exception as error:
+            fail(error)
+
     @app.post("/api/responses/{response_id}/drafts")
     def response_drafts(response_id: str, actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
@@ -427,23 +742,29 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
                 raise PermissionError("没有该工作项的对话记录。")
             store = AgentStore(app.state.assistant_state_dir / "agent.sqlite3")
             session = store.session(session_id, actor["user_id"])
-            if session is None:
-                return {"status": "ok", "turns": []}
-            if session["current_company_id"] != detail["task"]["company_id"]:
+            if session is not None and session["current_company_id"] != detail["task"]["company_id"]:
                 raise PermissionError("该对话属于其他企业，请在原企业打开。")
-            turns = store.list_turns(session_id, actor["user_id"], limit=100)
-            for company_id in companies_used(session, turns):
+            turns = store.list_turns(session_id, actor["user_id"], limit=100) if session else []
+            for company_id in companies_used(session, turns) if session else []:
                 TaxService(database).require_access(user_id=actor["user_id"], company_id=company_id)
                 EnterpriseService(database)._role(actor, company_id, {"accountant", "reviewer"})
-            attachments = database.connection.execute("""SELECT attachment_id,turn_id,filename,mime FROM enterprise_assistant_attachments
+            attachments = [dict(row) for row in database.connection.execute("""SELECT attachment_id,turn_id,filename,mime FROM enterprise_assistant_attachments
                 WHERE session_id=? AND task_id=? AND user_id=? ORDER BY created_at""", (session_id, task_id, actor["user_id"])).fetchall()
+            ]
+            originals = [dict(row) for row in database.connection.execute("""SELECT attachment_id,associated_turn_id AS turn_id,filename,
+                media_type AS mime,processing_status,last_error_message FROM enterprise_original_attachments
+                WHERE source_kind='assistant_turn' AND session_id=? AND task_id=? AND user_id=? ORDER BY created_at""",
+                (session_id, task_id, actor["user_id"])).fetchall()]
+            attachments.extend(originals)
             return {"status": "ok", "turns": [{**{key: item.get(key) for key in ("request_text", "output_text", "status", "created_at")},
-                "attachments": [dict(attachment) for attachment in attachments if attachment["turn_id"] == item["turn_id"]]} for item in reversed(turns)]}
+                "attachments": [attachment for attachment in attachments if attachment["turn_id"] == item["turn_id"]]} for item in reversed(turns)],
+                "pending_attachments": [attachment for attachment in originals if not attachment["turn_id"]]}
         except Exception as error:
             fail(error)
 
     def run_assistant(task_id: str, message: str, requested_session: str | None, actor: dict,
-                      database: EnterpriseDatabase, files: list[tuple[str, bytes]] | None = None) -> dict:
+                      database: EnterpriseDatabase, files: list[tuple[str, bytes]] | None = None,
+                      upload_key: str | None = None) -> dict:
             detail = EnterpriseService(database).work_item(user=actor, task_id=task_id, page_size=1)
             company_id = detail["task"]["company_id"]
             if not isinstance(message, str) or not message.strip():
@@ -453,13 +774,6 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
                 raise ValueError("对话编号格式无效。")
             model = app.state.enterprise_assistant_model
             live_enabled = os.getenv("TAXHARNESS_ENTERPRISE_LIVE_MODEL_ENABLED", "false").lower() == "true"
-            if model is None:
-                if not live_enabled:
-                    raise RuntimeError("企业对话模型尚未启用。")
-                budget_path = os.getenv("TAXHARNESS_ENTERPRISE_BUDGET", str(Path(app.state.enterprise_database).parent / "budget.json"))
-                budget_limit = _budget_limit(_budget_config(budget_path))
-            else:
-                budget_limit = None
             existing = database.connection.execute("SELECT user_id,company_id,task_id FROM enterprise_assistant_sessions WHERE session_id=?", (session_id,)).fetchone()
             if existing and (existing["user_id"] != actor["user_id"] or existing["company_id"] != company_id or existing["task_id"] != task_id):
                 raise PermissionError("该对话属于其他用户或工作项。")
@@ -471,27 +785,56 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
                 raise PermissionError("该对话属于其他用户或工作项。")
             database.connection.execute("UPDATE enterprise_assistant_sessions SET updated_at=? WHERE session_id=?", (now, session_id))
             attachment_ids = []
+            batch_key = None
             if files:
-                from .multimodal import extract_document, prepare_document
-                if len(files) > 10 or sum(len(content) for _, content in files) > 64 * 1024 * 1024:
-                    raise ValueError("一次最多上传 10 个文件、总计 64 MiB。")
-                prepared = [(prepare_document(filename, content), content) for filename, content in files]
-                root = app.state.assistant_state_dir / "uploads"
-                root.mkdir(parents=True, exist_ok=True)
-                for document, content in prepared:
-                    attachment_id = "attachment-" + uuid4().hex
-                    extracted = extract_document(document, user_text=message, user_id=actor["user_id"], session_id=session_id,
-                        turn_id="vision-" + uuid4().hex, budget_ledger_path=app.state.agent_store,
-                        budget_usd=budget_limit, model=app.state.enterprise_vision_model)
-                    suffix = {"application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}[document["mime"]]
-                    stored_name = attachment_id + suffix
-                    (root / stored_name).write_bytes(content)
-                    database.connection.execute("""INSERT INTO enterprise_assistant_attachments
-                        (attachment_id,session_id,task_id,company_id,user_id,filename,mime,sha256,size,stored_name,extracted_json,created_at)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""", (attachment_id, session_id, task_id, company_id, actor["user_id"],
-                        document["filename"], document["mime"], document["sha256"], document["size"], stored_name,
-                        json.dumps(extracted, ensure_ascii=False), utc_now()))
-                    attachment_ids.append(attachment_id)
+                from .reply_attachments import _normalize_uploads, _response_payload_hash, persist_original_attachment
+                batch_key = str(upload_key or uuid4().hex).strip()
+                if not batch_key or len(batch_key) > 160:
+                    raise ValueError("附件操作标识无效。")
+                uploads = _normalize_uploads(files)
+                payload_hash = _response_payload_hash(message.strip(), uploads)
+                connection = database.connection
+                connection.execute("""INSERT OR IGNORE INTO enterprise_assistant_upload_batches
+                    (session_id,user_id,upload_key,payload_hash,created_at,updated_at) VALUES(?,?,?,?,?,?)""",
+                    (session_id, actor["user_id"], batch_key, payload_hash, now, now))
+                batch = connection.execute("""SELECT * FROM enterprise_assistant_upload_batches
+                    WHERE session_id=? AND user_id=? AND upload_key=?""", (session_id, actor["user_id"], batch_key)).fetchone()
+                if batch["payload_hash"] != payload_hash:
+                    raise ValueError("同一次附件操作的内容已变化，请重新发送。")
+                source_id = "batch-" + hashlib.sha256((session_id + "|" + batch_key).encode()).hexdigest()
+                for index, upload in enumerate(uploads):
+                    attachment = persist_original_attachment(database, user=actor, session_id=session_id, task_id=task_id,
+                        source_id=source_id, upload_key=f"{batch_key}:{index}", filename=upload["filename"], content=upload["content"])
+                    attachment_ids.append(attachment["attachment_id"])
+                if batch["state"] == "completed":
+                    previous = AgentStore(app.state.assistant_state_dir / "agent.sqlite3").get_turn(batch["turn_id"], actor["user_id"])
+                    return {"status": previous["status"] if previous else "ok", "summary": "已返回此前的处理结果。",
+                            "reply": previous["output_text"] if previous else "请在历史对话中查看结果。",
+                            "session_id": session_id, "turn_id": batch["turn_id"], "attachments": attachment_ids, "duplicate": True}
+                if batch["state"] in {"running", "needs_attention"}:
+                    return {"status": "needs_attention", "summary": "此前处理正在进行或结果需要核对；附件已保留，请查看历史记录。",
+                            "session_id": session_id, "attachments": attachment_ids}
+            if model is None and not live_enabled:
+                if attachment_ids:
+                    return {"status": "attachment_pending", "summary": "附件已保存；对话模型尚未开启，可稍后继续。",
+                            "session_id": session_id, "attachments": attachment_ids}
+                raise RuntimeError("企业对话模型尚未启用。")
+            if model is None or (files and app.state.enterprise_vision_model is None and live_enabled):
+                budget_path = os.getenv("TAXHARNESS_ENTERPRISE_BUDGET", str(Path(app.state.enterprise_database).parent / "budget.json"))
+                budget_limit = _budget_limit(_budget_config(budget_path))
+            else:
+                budget_limit = None
+            if batch_key:
+                claimed = database.connection.execute("""UPDATE enterprise_assistant_upload_batches SET state='running',updated_at=?
+                    WHERE session_id=? AND user_id=? AND upload_key=? AND state='pending'""",
+                    (utc_now(), session_id, actor["user_id"], batch_key)).rowcount
+                if not claimed:
+                    return {"status": "needs_attention", "summary": "此前处理正在进行，请查看历史记录。", "session_id": session_id, "attachments": attachment_ids}
+                from .reply_attachments import process_attachment
+                for attachment_id in attachment_ids:
+                    process_attachment(database, user=actor, attachment_id=attachment_id, user_text=message,
+                        model=app.state.enterprise_vision_model, live_authorized=live_enabled,
+                        budget_ledger_path=app.state.agent_store, budget_usd=budget_limit)
             rows = database.connection.execute("""SELECT attachment_id,extracted_json FROM enterprise_assistant_attachments
                 WHERE task_id=? AND user_id=? ORDER BY created_at DESC,rowid DESC LIMIT 5""",
                 (task_id, actor["user_id"])).fetchall()
@@ -502,6 +845,16 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
                 value["pdf_text"] = text[:12000]
                 value["text_truncated"] = len(text) > 12000
                 observations.append({"attachment_id": row["attachment_id"], **value})
+            original_rows = database.connection.execute("""SELECT attachment_id,filename,processing_status,last_error_message,prepared_json,recognized_json
+                FROM enterprise_original_attachments WHERE source_kind='assistant_turn' AND task_id=? AND user_id=?
+                ORDER BY created_at DESC,rowid DESC LIMIT 5""", (task_id, actor["user_id"])).fetchall()
+            for row in reversed(original_rows):
+                prepared = json.loads(row["prepared_json"] or "{}")
+                text = prepared.get("text", "")
+                observations.append({"attachment_id": row["attachment_id"], "filename": row["filename"],
+                    "processing_status": row["processing_status"], "error": row["last_error_message"],
+                    "page_count": prepared.get("page_count"), "pdf_text": text[:12000], "text_truncated": len(text) > 12000,
+                    **json.loads(row["recognized_json"] or "{}")})
             from .conversation import EnterpriseAgentRuntime
             root = app.state.assistant_state_dir
             root.mkdir(parents=True, exist_ok=True)
@@ -512,9 +865,27 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
                 result = runtime.run_turn(session_id=session_id, user_id=actor["user_id"], company_id=company_id,
                     message=message.strip(), model=model, live_authorized=model is None, budget_usd=budget_limit,
                     attachment_observations=observations)
+            except Exception:
+                if batch_key:
+                    database.connection.execute("""UPDATE enterprise_assistant_upload_batches SET state='needs_attention',updated_at=?
+                        WHERE session_id=? AND user_id=? AND upload_key=?""", (utc_now(), session_id, actor["user_id"], batch_key))
+                raise
             finally:
                 runtime.close()
-            if result.get("turn_id"):
+            if batch_key:
+                database.connection.execute("BEGIN IMMEDIATE")
+                try:
+                    for attachment_id in attachment_ids:
+                        database.connection.execute("UPDATE enterprise_original_attachments SET associated_turn_id=? WHERE attachment_id=?",
+                                                    (result.get("turn_id"), attachment_id))
+                    database.connection.execute("""UPDATE enterprise_assistant_upload_batches SET state=?,turn_id=?,updated_at=?
+                        WHERE session_id=? AND user_id=? AND upload_key=?""", ("completed" if result.get("turn_id") else "needs_attention",
+                        result.get("turn_id"), utc_now(), session_id, actor["user_id"], batch_key))
+                    database.connection.commit()
+                except Exception:
+                    database.connection.rollback()
+                    raise
+            elif result.get("turn_id"):
                 for attachment_id in attachment_ids:
                     database.connection.execute("UPDATE enterprise_assistant_attachments SET turn_id=? WHERE attachment_id=?", (result["turn_id"], attachment_id))
             return {"status": result.get("status"), "summary": result.get("summary", ""), "reply": result.get("reply", ""),
@@ -528,7 +899,7 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
             fail(error)
 
     @app.post("/api/work-items/{task_id}/assistant/turn-with-files")
-    async def assistant_turn_with_files(task_id: str, message: str = Form(...), session_id: str = Form(""),
+    async def assistant_turn_with_files(task_id: str, message: str = Form(...), session_id: str = Form(""), upload_key: str = Form(""),
                                         files: list[UploadFile] = File(...), actor=Depends(get_mutating_actor),
                                         database: EnterpriseDatabase = Depends(get_database)):
         try:
@@ -541,7 +912,7 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
                 if len(content) > 32 * 1024 * 1024:
                     raise ValueError("单个文件最大支持 32 MiB。")
                 payload.append((file.filename or "上传文件", content))
-            return await run_in_threadpool(run_assistant, task_id, message, session_id or None, actor, database, payload)
+            return await run_in_threadpool(run_assistant, task_id, message, session_id or None, actor, database, payload, upload_key or None)
         except Exception as error:
             fail(error)
 
@@ -550,6 +921,17 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
         try:
             actor = state[0]
             EnterpriseService(database).work_item(user=actor, task_id=task_id, page_size=1)
+            original = database.connection.execute("SELECT task_id FROM enterprise_original_attachments WHERE attachment_id=? AND source_kind='assistant_turn'", (attachment_id,)).fetchone()
+            if original:
+                if original["task_id"] != task_id:
+                    raise PermissionError("没有该附件的访问权限。")
+                from .reply_attachments import get_attachment
+                attachment = get_attachment(database, user=actor, attachment_id=attachment_id, include_original=True)
+                content = attachment["original_content"]
+                if hashlib.sha256(content).hexdigest() != attachment["sha256"]:
+                    raise ValueError("附件原件校验失败，请联系管理员恢复。")
+                return Response(content=content, media_type=attachment["media_type"],
+                    headers={"Content-Disposition": "inline; filename*=UTF-8''" + quote(attachment["filename"])})
             row = database.connection.execute("""SELECT * FROM enterprise_assistant_attachments
                 WHERE attachment_id=? AND task_id=? AND user_id=?""", (attachment_id, task_id, actor["user_id"])).fetchone()
             if row is None:
@@ -563,16 +945,19 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     def confirm_drafts(payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
             return EnterpriseService(database).confirm_drafts(user=actor, draft_ids=payload.get("draft_ids", []),
-                expected_draft_revisions=payload.get("expected_draft_revisions"))
+                expected_draft_revisions=payload.get("expected_draft_revisions"),
+                fields_by_draft=payload.get("fields_by_draft"), conditions_by_draft=payload.get("conditions_by_draft"))
         except Exception as error:
             fail(error)
 
     @app.put("/api/drafts/{draft_id}")
     def update_draft(draft_id: str, payload: dict = Body(...), actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         try:
+            source_text = "工作台表单：" + json.dumps({key: payload.get(key) for key in ("purpose", "remarks", "clear_fields") if key in payload}, ensure_ascii=False, sort_keys=True)
             return EnterpriseService(database).update_draft(user=actor, draft_id=draft_id, invoice_id=payload.get("invoice_id"),
                 purpose=payload.get("purpose"), remarks=payload.get("remarks"), expected_draft_revision=payload.get("expected_draft_revision"),
-                rebase_fields=payload.get("rebase_fields"))
+                rebase_fields=payload.get("rebase_fields"), clear_fields=payload.get("clear_fields"),
+                source_text=source_text, source_turn_id="form-" + uuid4().hex)
         except Exception as error:
             fail(error)
 
@@ -694,21 +1079,19 @@ def create_app(*, database_path: str | Path | None = None, agent_store_path: str
     def backup(actor=Depends(get_mutating_actor), database: EnterpriseDatabase = Depends(get_database)):
         admin(actor)
         import datetime
+        from .backup import create_backup
         backup_dir = Path(app.state.enterprise_database).parent / "backups"
         backup_dir.mkdir(parents=True, exist_ok=True)
-        name = "enterprise-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + ".sqlite3"
-        path = backup_dir / name
-        destination = sqlite3.connect(str(path))
         try:
-            database.connection.backup(destination)
-            result = destination.execute("PRAGMA integrity_check").fetchone()[0]
-        finally:
-            destination.close()
-        if result != "ok":
-            path.unlink(missing_ok=True)
-            raise HTTPException(status_code=500, detail="备份完整性检查失败。")
-        return {"status": "ok", "filename": name, "path": str(path), "integrity_check": result}
+            name = "enterprise-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid4().hex[:8] + ".zip"
+            return create_backup(database, database_path=app.state.enterprise_database, destination=backup_dir / name)
+        except Exception as error:
+            fail(error)
 
+    from .delivery_http import install_delivery_routes
+    from .extraction_http import install_extraction_routes
+    install_delivery_routes(app, get_actor, get_mutating_actor, get_database, fail)
+    install_extraction_routes(app, get_actor, get_mutating_actor, get_database, fail)
     return app
 
 

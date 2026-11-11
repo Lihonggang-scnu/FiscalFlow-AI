@@ -96,6 +96,7 @@ def read_structured_invoice(filename: str, content: bytes) -> tuple[list[dict[st
             record = _invoice_xml(content)
             if record is None:
                 raise ValueError("未找到发票号码，请核对 XML 是否为票据数据。")
+            record["_source_locator"] = {"kind": "xml", "entry": Path(filename).name, "record_index": 1}
             return [record], []
         except ValueError as error:
             return [], [{"row_number": 1, "source_invoice_id": None, "issue_code": "invalid_document", "details": str(error)}]
@@ -112,6 +113,7 @@ def read_structured_invoice(filename: str, content: bytes) -> tuple[list[dict[st
                 try:
                     record = _invoice_xml(archive.read(info))
                     if record is not None:
+                        record["_source_locator"] = {"kind": "ofd_xml", "entry": info.filename, "record_index": len(records) + 1}
                         records.append(record)
                 except ValueError as error:
                     if "invoice" in info.filename.casefold() or "fapiao" in info.filename.casefold():

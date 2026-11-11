@@ -1,0 +1,227 @@
+{
+  "cases": [
+    {
+      "id": "missing_month",
+      "checks": {
+        "runtime_ok": true,
+        "asked_month": true,
+        "no_assumed_month_call": true,
+        "correct_after_answer": true,
+        "no_write": true
+      },
+      "outcome": "passed",
+      "passed": true,
+      "turns": [
+        {
+          "request": "查一下甲企业的发票总额，月份我还没说。",
+          "reply": "需要先确认月份，才能查询甲企业的发票总额。请问要查哪个月份？",
+          "status": "ok",
+          "summary": "",
+          "error_type": "",
+          "tool_calls": []
+        },
+        {
+          "request": "查2026年9月。",
+          "reply": "甲企业（比赛模拟）2026年9月发票总额为 **9,622.06 元**，共 10 张发票。\n\n依据《金额统计说明》1.0 版：发票总额为当月全部发票价税合计之和，是否填写用途不影响金额统计。",
+          "status": "ok",
+          "summary": "",
+          "error_type": "",
+          "tool_calls": [
+            {
+              "name": "query_finance",
+              "args": {
+                "month": "2026-09",
+                "company_id": "C001"
+              },
+              "id": "call_00_4QCUHlZwsPNAWl0hBQPg5670",
+              "type": "tool_call"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "correct_invoice",
+      "checks": {
+        "runtime_ok": true,
+        "correct_invoice_saved": true,
+        "original_invoice_untouched": true,
+        "one_write": true
+      },
+      "outcome": "passed",
+      "passed": true,
+      "turns": [
+        {
+          "request": "甲企业2026年9月，我刚才说错票号了：先说F002，实际是F003用于寄送客户验收文件；只保存F003的用途，F002不要更改。",
+          "reply": "已按更正后的票号办理：\n\n- **F003**（晓风快递，快递服务，300.00 元，2026-09-16）：用途已保存为“寄送客户验收文件”，备注未改动。\n- **F002**（书林图文，复印纸、打印服务，800.00 元）：未做任何更改，用途和备注仍为空。\n\n以上均为甲企业 2026 年 9 月。",
+          "status": "ok",
+          "summary": "",
+          "error_type": "",
+          "tool_calls": [
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F002",
+                "month": "2026-09"
+              },
+              "id": "call_00_9ziN891BYXFL9B79lloz5686",
+              "type": "tool_call"
+            },
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09"
+              },
+              "id": "call_01_qlpRjtxvOsQA7hZUOpSU2133",
+              "type": "tool_call"
+            },
+            {
+              "name": "prepare_invoice_actions",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "intent_quote": "先说F002，实际是F003用于寄送客户验收文件；只保存F003的用途，F002不要更改。",
+                "actions": [
+                  {
+                    "field": "purpose",
+                    "mode": "commit",
+                    "value": "寄送客户验收文件",
+                    "source_quote": "实际是F003用于寄送客户验收文件"
+                  },
+                  {
+                    "field": "remarks",
+                    "mode": "preserve"
+                  }
+                ]
+              },
+              "id": "call_00_AEp0uM04fAs4FxFzu9TL9039",
+              "type": "tool_call"
+            },
+            {
+              "name": "commit_invoice_actions",
+              "args": {
+                "plan_id": "plan-27464fabbd5e41878237590e01910f86",
+                "action_ids": [
+                  "a1",
+                  "a2"
+                ]
+              },
+              "id": "call_00_lZICllb3qn3mSsZIokqI2909",
+              "type": "tool_call"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shared_purpose",
+      "checks": {
+        "runtime_ok": true,
+        "both_saved": false,
+        "other_untouched": true,
+        "two_writes": false
+      },
+      "outcome": "failed",
+      "passed": false,
+      "turns": [
+        {
+          "request": "甲企业2026年9月的F002和F003都用于客户培训资料印制，请分别保存两张发票的用途；F004先不动。",
+          "reply": "本轮有保存操作未执行：尚未收到对该字段的保存决定。；本轮没有对这些字段作出保存决定，发票没有修改。",
+          "status": "ok",
+          "summary": "",
+          "error_type": "",
+          "tool_calls": [
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F002",
+                "month": "2026-09"
+              },
+              "id": "call_00_JbRElKShQn8SBlfIP6Zz0188",
+              "type": "tool_call"
+            },
+            {
+              "name": "read_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09"
+              },
+              "id": "call_01_Urti54vD2UP3UzMTZHnJ5975",
+              "type": "tool_call"
+            },
+            {
+              "name": "prepare_invoice_actions",
+              "args": {
+                "invoice_id": "F002",
+                "month": "2026-09",
+                "intent_quote": "甲企业2026年9月的F002和F003都用于客户培训资料印制，请分别保存两张发票的用途；F004先不动。",
+                "actions": [
+                  {
+                    "field": "purpose",
+                    "mode": "commit",
+                    "value": "客户培训资料印制",
+                    "source_quote": "F002和F003都用于客户培训资料印制"
+                  }
+                ]
+              },
+              "id": "call_00_wgVuvKTpVG8GbzF0SBPu4964",
+              "type": "tool_call"
+            },
+            {
+              "name": "prepare_invoice_actions",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "intent_quote": "甲企业2026年9月的F002和F003都用于客户培训资料印制，请分别保存两张发票的用途；F004先不动。",
+                "actions": [
+                  {
+                    "field": "purpose",
+                    "mode": "commit",
+                    "value": "客户培训资料印制",
+                    "source_quote": "F002和F003都用于客户培训资料印制"
+                  }
+                ]
+              },
+              "id": "call_01_KEjmAHxxs4J9fmkdUgRc7724",
+              "type": "tool_call"
+            },
+            {
+              "name": "save_invoice",
+              "args": {
+                "invoice_id": "F002",
+                "month": "2026-09",
+                "changes": {
+                  "purpose": "客户培训资料印制"
+                },
+                "source_quotes": {
+                  "purpose": "F002和F003都用于客户培训资料印制"
+                }
+              },
+              "id": "call_00_HPehwW9JeZL1gElzUhnw2786",
+              "type": "tool_call"
+            },
+            {
+              "name": "save_invoice",
+              "args": {
+                "invoice_id": "F003",
+                "month": "2026-09",
+                "changes": {
+                  "purpose": "客户培训资料印制"
+                },
+                "source_quotes": {
+                  "purpose": "F002和F003都用于客户培训资料印制"
+                }
+              },
+              "id": "call_01_4jJkS2rHwh728ilHAJuY1985",
+              "type": "tool_call"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "passed": false,
+  "model_calls": 11,
+  "estimated_increment_cny": 0.087072
+}

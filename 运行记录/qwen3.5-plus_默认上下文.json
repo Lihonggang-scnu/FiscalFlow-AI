@@ -1,0 +1,1867 @@
+{
+  "model_requested": "qwen3.5-plus",
+  "provider": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "network": "direct_no_proxy",
+  "thinking": false,
+  "pricing_reservation_cny_per_million": {
+    "input": 4.0,
+    "output": 24.0
+  },
+  "max_output_tokens": 1600,
+  "context_budget_tokens": 24000,
+  "cases": [
+    {
+      "name": "经办人混合回复拆分",
+      "passed": true,
+      "reply_input": "A71 是系统迭代测试环境订阅；A72 的用途还要找项目经理确认，暂时不知道。",
+      "drafts": [
+        {
+          "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+          "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+          "request_id": "req-1e5144bdb00f485f94ac3f84c5867c67",
+          "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+          "company_id": "ent-72575d60f6674ff88457",
+          "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+          "proposed_purpose": "系统迭代测试环境订阅",
+          "proposed_remarks": null,
+          "evidence_quote": "A71 是系统迭代测试环境订阅",
+          "needs_clarification": false,
+          "unavailable": false,
+          "superseded_by": null,
+          "clarification_question": "",
+          "status": "proposed",
+          "source_revision": 1,
+          "draft_revision": 1,
+          "origin": "request",
+          "source_turn_id": null,
+          "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+          "created_at": "2026-11-11T14:40:16.141800+00:00",
+          "candidate_invoice_ids": [
+            "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+          ],
+          "field_context": {
+            "purpose": {
+              "base_known": true,
+              "base_revision": 1,
+              "base_value": null,
+              "evidence_quote": "A71 是系统迭代测试环境订阅",
+              "evidence_source": {
+                "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+                "type": "requester_reply"
+              },
+              "history": [],
+              "proposed_value": "系统迭代测试环境订阅",
+              "source_turn_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1"
+            }
+          }
+        },
+        {
+          "draft_id": "draft-fb4115e49e8141a386a48c5ad77fe152",
+          "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+          "request_id": "req-1e5144bdb00f485f94ac3f84c5867c67",
+          "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+          "company_id": "ent-72575d60f6674ff88457",
+          "invoice_id": null,
+          "proposed_purpose": null,
+          "proposed_remarks": null,
+          "evidence_quote": "A72 的用途还要找项目经理确认，暂时不知道",
+          "needs_clarification": true,
+          "unavailable": false,
+          "superseded_by": null,
+          "clarification_question": "请提供 A72 (ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198) 经确认后的实际用途。",
+          "status": "clarification",
+          "source_revision": null,
+          "draft_revision": 1,
+          "origin": "request",
+          "source_turn_id": null,
+          "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+          "created_at": "2026-11-11T14:40:16.142869+00:00",
+          "candidate_invoice_ids": [
+            "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+          ],
+          "field_context": {}
+        }
+      ],
+      "invoice_before": {
+        "A71": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        },
+        "A72": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        }
+      },
+      "invoice_after": {
+        "A71": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        },
+        "A72": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        }
+      },
+      "seconds": 8.7
+    },
+    {
+      "name": "对话更正草稿且不保存",
+      "passed": true,
+      "prompt": "先把 A71 的用途草稿更正为‘客户系统迁移测试’，A72 保持等待；只改草稿，暂时不要保存到发票。",
+      "trace": {
+        "status": "ok",
+        "reply": "已完成：\n- A71 的用途草稿已更正为“客户系统迁移测试”，草稿版本更新为 2，尚未写入发票。\n- A72 保持等待澄清状态，未作改动。\n\n下一步：如您后续要求保存/确认该草稿，我可按 draft_id 和最新 draft_保存版本 2 提交确认；A72 需您提供明确用途后再处理。",
+        "summary": "",
+        "error_type": null,
+        "tool_calls": [
+          {
+            "name": "enterprise_inspect_work_item",
+            "args": {
+              "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+              "company_id": "ent-72575d60f6674ff88457"
+            }
+          },
+          {
+            "name": "enterprise_correct_draft",
+            "args": {
+              "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+              "expected_draft_revision": 1,
+              "purpose": "客户系统迁移测试",
+              "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+              "company_id": "ent-72575d60f6674ff88457"
+            }
+          }
+        ],
+        "tool_results": [
+          {
+            "name": "enterprise_inspect_work_item",
+            "result": {
+              "status": "ok",
+              "task": {
+                "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                "company_id": "ent-72575d60f6674ff88457",
+                "period": "2026-10",
+                "task_type": "purpose_review",
+                "status": "in_progress",
+                "revision": 3,
+                "assigned_to": null,
+                "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                "created_at": "2026-11-11T14:40:07.434604+00:00",
+                "updated_at": "2026-11-11T14:40:16.142869+00:00",
+                "closed_at": null,
+                "company_name": "星禾科技（模拟）"
+              },
+              "target_invoice_count": 2,
+              "invoice_record_kind": "current_database",
+              "tickets": [
+                {
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "state": "awaiting_confirmation",
+                  "reason": "draft_requires_accountant_confirmation",
+                  "task_status": "pending",
+                  "invoice_record_kind": "current_database",
+                  "actual_invoice": {
+                    "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "issue_date": "2026-10-08",
+                    "seller_name": "示例云服务",
+                    "project_name": "服务费",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1,
+                    "currency": "CNY",
+                    "source_status": "active",
+                    "amount_text": "240.00",
+                    "unit_price_text": null,
+                    "quantity_text": null,
+                    "purpose_review_status": "pending",
+                    "disposition": null,
+                    "source_system": "演示ERP",
+                    "source_invoice_id": "A71",
+                    "task_status": "pending",
+                    "review_token": "b676528082a7fd56bc45c894dd61936ba3f6dd8bbdb04509a6a4c84b71e1d8f1",
+                    "review_basis": {
+                      "method": {
+                        "rule_status": "unavailable",
+                        "default_purpose_policy": "all_blank"
+                      },
+                      "require_independent_review": true,
+                      "drafts": [
+                        {
+                          "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                          "status": "proposed",
+                          "draft_revision": 1,
+                          "proposed_purpose": "系统迭代测试环境订阅",
+                          "proposed_remarks": null,
+                          "evidence_quote": "A71 是系统迭代测试环境订阅",
+                          "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+                          "field_context": {
+                            "purpose": {
+                              "base_known": true,
+                              "base_revision": 1,
+                              "base_value": null,
+                              "evidence_quote": "A71 是系统迭代测试环境订阅",
+                              "evidence_source": {
+                                "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+                                "type": "requester_reply"
+                              },
+                              "history": [],
+                              "proposed_value": "系统迭代测试环境订阅",
+                              "source_turn_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1"
+                            }
+                          }
+                        }
+                      ],
+                      "professional_method": {
+                        "company_id": "ent-72575d60f6674ff88457",
+                        "period": "2026-10",
+                        "version": 0,
+                        "name": "企业默认专业复核方法",
+                        "criteria": {
+                          "purpose_support_required": true,
+                          "identity_clear_required": true,
+                          "reviewable_required": true,
+                          "alternative_support": true
+                        },
+                        "source": "built_in"
+                      },
+                      "professional": {
+                        "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                        "issue_date": "2026-10-08",
+                        "revision": 1,
+                        "seller_name": "示例云服务",
+                        "project_name": "服务费",
+                        "amount_text": "240.00",
+                        "currency": "CNY",
+                        "source_system": "演示ERP",
+                        "source_invoice_id": "A71",
+                        "purpose": null,
+                        "source_status": "active",
+                        "status": "open",
+                        "requirements": [
+                          {
+                            "id": "purpose_supported",
+                            "label": "用途有支持",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "尚无有效的用途支持来源。"
+                          },
+                          {
+                            "id": "identity_clear",
+                            "label": "身份明确",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [],
+                            "summary": "已关联正式来源且无待判定候选。"
+                          },
+                          {
+                            "id": "reviewable",
+                            "label": "可复核",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "目前没有可回读的来源支持。"
+                          }
+                        ],
+                        "missing_requirements": [
+                          "purpose_supported",
+                          "reviewable"
+                        ],
+                        "conflicts": [],
+                        "awaiting_judgment": {
+                          "identity_reviews": [],
+                          "invalid_sources": []
+                        },
+                        "support_groups": [],
+                        "withdrawn_sources": [],
+                        "identity_sources": [
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A71",
+                            "source_version": "f90e7c71faeeedf73d5273b919fcec8ac8cc5c0aeb552683530d84b65d66e6ed"
+                          },
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A71",
+                            "source_version": "f90e7c71faeeedf73d5273b919fcec8ac8cc5c0aeb552683530d84b65d66e6ed"
+                          }
+                        ],
+                        "basis_revision": "2f935ec7e4785e4646b2fb20bf21860e5ac10870568799350c9820bbc1413500"
+                      }
+                    }
+                  },
+                  "draft_ids": [
+                    "draft-919c3b964cf048f8936a4571b40a6e1c"
+                  ]
+                },
+                {
+                  "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                  "state": "waiting",
+                  "reason": "needs_clarification",
+                  "task_status": "awaiting_info",
+                  "invoice_record_kind": "current_database",
+                  "actual_invoice": {
+                    "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                    "issue_date": "2026-10-10",
+                    "seller_name": "示例设备服务",
+                    "project_name": "维护费",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1,
+                    "currency": "CNY",
+                    "source_status": "active",
+                    "amount_text": "500.00",
+                    "unit_price_text": null,
+                    "quantity_text": null,
+                    "purpose_review_status": "pending",
+                    "disposition": null,
+                    "source_system": "演示ERP",
+                    "source_invoice_id": "A72",
+                    "task_status": "awaiting_info",
+                    "review_token": "7c3cdc17e5e77b1792674491a192b8e62e5c19980fe634d5ac41de81a4dc3969",
+                    "review_basis": {
+                      "method": {
+                        "rule_status": "unavailable",
+                        "default_purpose_policy": "all_blank"
+                      },
+                      "require_independent_review": true,
+                      "drafts": [],
+                      "professional_method": {
+                        "company_id": "ent-72575d60f6674ff88457",
+                        "period": "2026-10",
+                        "version": 0,
+                        "name": "企业默认专业复核方法",
+                        "criteria": {
+                          "purpose_support_required": true,
+                          "identity_clear_required": true,
+                          "reviewable_required": true,
+                          "alternative_support": true
+                        },
+                        "source": "built_in"
+                      },
+                      "professional": {
+                        "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                        "issue_date": "2026-10-10",
+                        "revision": 1,
+                        "seller_name": "示例设备服务",
+                        "project_name": "维护费",
+                        "amount_text": "500.00",
+                        "currency": "CNY",
+                        "source_system": "演示ERP",
+                        "source_invoice_id": "A72",
+                        "purpose": null,
+                        "source_status": "active",
+                        "status": "open",
+                        "requirements": [
+                          {
+                            "id": "purpose_supported",
+                            "label": "用途有支持",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "尚无有效的用途支持来源。"
+                          },
+                          {
+                            "id": "identity_clear",
+                            "label": "身份明确",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [],
+                            "summary": "已关联正式来源且无待判定候选。"
+                          },
+                          {
+                            "id": "reviewable",
+                            "label": "可复核",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "目前没有可回读的来源支持。"
+                          }
+                        ],
+                        "missing_requirements": [
+                          "purpose_supported",
+                          "reviewable"
+                        ],
+                        "conflicts": [],
+                        "awaiting_judgment": {
+                          "identity_reviews": [],
+                          "invalid_sources": []
+                        },
+                        "support_groups": [],
+                        "withdrawn_sources": [],
+                        "identity_sources": [
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A72",
+                            "source_version": "908baed19a5c56dcbb96f7e2ca785af73417f446eaa4c6e1abf8c69882795454"
+                          },
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A72",
+                            "source_version": "908baed19a5c56dcbb96f7e2ca785af73417f446eaa4c6e1abf8c69882795454"
+                          }
+                        ],
+                        "basis_revision": "4a1e502bb5666ab4a1f0e6c5c26ee82cf98c535232eee6ad8a68cbcf60aacf53"
+                      }
+                    }
+                  },
+                  "draft_ids": [
+                    "draft-fb4115e49e8141a386a48c5ad77fe152"
+                  ]
+                }
+              ],
+              "needs_input": [],
+              "awaiting_confirmation": [
+                "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+              ],
+              "waiting": [
+                "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+              ],
+              "awaiting_review": [],
+              "completed": [],
+              "excluded": [],
+              "waiting_reasons": {
+                "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198": "needs_clarification"
+              },
+              "drafts": [
+                {
+                  "draft_id": "draft-fb4115e49e8141a386a48c5ad77fe152",
+                  "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                  "company_id": "ent-72575d60f6674ff88457",
+                  "invoice_id": null,
+                  "candidate_invoice_ids": [
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ],
+                  "status": "clarification",
+                  "proposed_fields": {
+                    "purpose": null,
+                    "remarks": null
+                  },
+                  "evidence_quote": "A72 的用途还要找项目经理确认，暂时不知道",
+                  "field_sources": {},
+                  "clarification_question": "请提供 A72 (ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198) 经确认后的实际用途。",
+                  "needs_clarification": true,
+                  "unavailable": false,
+                  "draft_revision": 1,
+                  "source_invoice_revision": null,
+                  "current_invoice_revisions": {
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198": 1
+                  },
+                  "source_version_state": "not_comparable",
+                  "invoice_revision_state": "not_comparable",
+                  "field_states": {
+                    "purpose": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": null
+                    },
+                    "remarks": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": null
+                    }
+                  },
+                  "field_conflicts": {},
+                  "conflict_reason": null,
+                  "superseded_by": null,
+                  "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "created_at": "2026-11-11T14:40:16.142869+00:00",
+                  "invoice_refs": [
+                    {
+                      "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                      "source_system": "演示ERP",
+                      "source_invoice_id": "A72",
+                      "seller_name": "示例设备服务",
+                      "project_name": "维护费"
+                    }
+                  ]
+                },
+                {
+                  "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                  "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                  "company_id": "ent-72575d60f6674ff88457",
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "candidate_invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                  ],
+                  "status": "proposed",
+                  "proposed_fields": {
+                    "purpose": "系统迭代测试环境订阅",
+                    "remarks": null
+                  },
+                  "evidence_quote": "A71 是系统迭代测试环境订阅",
+                  "field_sources": {
+                    "purpose": {
+                      "kind": "requester_reply",
+                      "label": "经办人回复原话"
+                    }
+                  },
+                  "clarification_question": "",
+                  "needs_clarification": false,
+                  "unavailable": false,
+                  "draft_revision": 1,
+                  "source_invoice_revision": 1,
+                  "current_invoice_revisions": {
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18": 1
+                  },
+                  "source_version_state": "current",
+                  "invoice_revision_state": "current",
+                  "field_states": {
+                    "purpose": {
+                      "state": "ready",
+                      "reason_code": "field_matches_base",
+                      "explanation": "当前字段仍与草稿基线一致，可以确认提议。",
+                      "before": null,
+                      "base_known": true,
+                      "current": null,
+                      "proposed": "系统迭代测试环境订阅",
+                      "current_revision": 1
+                    },
+                    "remarks": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": 1
+                    }
+                  },
+                  "field_conflicts": {},
+                  "conflict_reason": null,
+                  "superseded_by": null,
+                  "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "created_at": "2026-11-11T14:40:16.141800+00:00",
+                  "invoice_refs": [
+                    {
+                      "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                      "source_system": "演示ERP",
+                      "source_invoice_id": "A71",
+                      "seller_name": "示例云服务",
+                      "project_name": "服务费"
+                    }
+                  ]
+                }
+              ],
+              "requests": [
+                {
+                  "request_id": "req-1e5144bdb00f485f94ac3f84c5867c67",
+                  "status": "replied",
+                  "message": "请说明两张发票的实际用途。",
+                  "respondent_user_id": "usr-73cd993b451b472eaf60fc0bebdef38f",
+                  "target_invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ],
+                  "response_count": 1
+                }
+              ],
+              "next_actions": [
+                {
+                  "action": "confirm_drafts",
+                  "draft_ids": [
+                    "draft-919c3b964cf048f8936a4571b40a6e1c"
+                  ],
+                  "invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                  ]
+                },
+                {
+                  "action": "clarify_drafts",
+                  "invoice_ids": [
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "enterprise_correct_draft",
+            "result": {
+              "status": "ok",
+              "draft": {
+                "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+                "request_id": "req-1e5144bdb00f485f94ac3f84c5867c67",
+                "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                "company_id": "ent-72575d60f6674ff88457",
+                "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                "proposed_purpose": "客户系统迁移测试",
+                "proposed_remarks": null,
+                "evidence_quote": "A71 是系统迭代测试环境订阅",
+                "needs_clarification": false,
+                "unavailable": false,
+                "superseded_by": null,
+                "clarification_question": "",
+                "status": "proposed",
+                "source_revision": 1,
+                "draft_revision": 2,
+                "origin": "request",
+                "source_turn_id": null,
+                "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                "created_at": "2026-11-11T14:40:16.141800+00:00",
+                "candidate_invoice_ids": [
+                  "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                ],
+                "field_context": {
+                  "purpose": {
+                    "base_revision": 1,
+                    "base_value": null,
+                    "evidence_quote": "先把 A71 的用途草稿更正为‘客户系统迁移测试’，A72 保持等待；只改草稿，暂时不要保存到发票。",
+                    "history": [
+                      {
+                        "evidence_quote": "A71 是系统迭代测试环境订阅",
+                        "proposed_value": "系统迭代测试环境订阅",
+                        "source_turn_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1"
+                      }
+                    ],
+                    "mode": "draft",
+                    "proposed_value": "客户系统迁移测试",
+                    "source_recorded": true,
+                    "source_turn_id": "turn-81610ca6a1e74b04b34c5ac8df35e1d3"
+                  }
+                }
+              },
+              "invoice_written": false,
+              "summary": "草稿已更正，发票尚未修改。"
+            }
+          }
+        ],
+        "provider_model_names": [
+          "qwen3.5-plus",
+          "qwen3.5-plus",
+          "qwen3.5-plus"
+        ]
+      },
+      "draft": {
+        "proposed_purpose": "客户系统迁移测试",
+        "status": "proposed"
+      },
+      "invoices": {
+        "A71": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        },
+        "A72": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        }
+      },
+      "seconds": 14.28
+    },
+    {
+      "name": "新会话确认保存并待复核",
+      "passed": true,
+      "prompt": "继续办理，把 A71 刚更正的用途确认保存；A72 暂时不处理。请说明现在还需要哪些步骤。",
+      "trace": {
+        "status": "ok",
+        "reply": "已完成：\n- A71（发票 ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18）的用途草稿“客户系统迁移测试”已确认保存，发票用途已更新，当前状态为**待复核**。\n\n未完成/下一步：\n- A72（发票 ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198）仍**等待澄清**，需您提供经确认的实际用途后才能继续处理。\n- A71 虽已保存，但按企业流程仍需**复核**，目前工作项整体状态为“needs_review”。\n\n请补充 A72 的用途信息，或指示是否暂时搁置该票。",
+        "summary": "",
+        "error_type": null,
+        "tool_calls": [
+          {
+            "name": "enterprise_inspect_work_item",
+            "args": {
+              "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee"
+            }
+          },
+          {
+            "name": "enterprise_confirm_drafts",
+            "args": {
+              "drafts": [
+                {
+                  "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                  "draft_revision": 2
+                }
+              ]
+            }
+          }
+        ],
+        "tool_results": [
+          {
+            "name": "enterprise_inspect_work_item",
+            "result": {
+              "status": "ok",
+              "task": {
+                "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                "company_id": "ent-72575d60f6674ff88457",
+                "period": "2026-10",
+                "task_type": "purpose_review",
+                "status": "in_progress",
+                "revision": 3,
+                "assigned_to": null,
+                "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                "created_at": "2026-11-11T14:40:07.434604+00:00",
+                "updated_at": "2026-11-11T14:40:16.142869+00:00",
+                "closed_at": null,
+                "company_name": "星禾科技（模拟）"
+              },
+              "target_invoice_count": 2,
+              "invoice_record_kind": "current_database",
+              "tickets": [
+                {
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "state": "awaiting_confirmation",
+                  "reason": "draft_requires_accountant_confirmation",
+                  "task_status": "pending",
+                  "invoice_record_kind": "current_database",
+                  "actual_invoice": {
+                    "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "issue_date": "2026-10-08",
+                    "seller_name": "示例云服务",
+                    "project_name": "服务费",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1,
+                    "currency": "CNY",
+                    "source_status": "active",
+                    "amount_text": "240.00",
+                    "unit_price_text": null,
+                    "quantity_text": null,
+                    "purpose_review_status": "pending",
+                    "disposition": null,
+                    "source_system": "演示ERP",
+                    "source_invoice_id": "A71",
+                    "task_status": "pending",
+                    "review_token": "66c3cdfa9a2a098c853b2cfab4f016bf9f2ad9a4c144d6e7e38877f7c56025c6",
+                    "review_basis": {
+                      "method": {
+                        "rule_status": "unavailable",
+                        "default_purpose_policy": "all_blank"
+                      },
+                      "require_independent_review": true,
+                      "drafts": [
+                        {
+                          "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                          "status": "proposed",
+                          "draft_revision": 2,
+                          "proposed_purpose": "客户系统迁移测试",
+                          "proposed_remarks": null,
+                          "evidence_quote": "A71 是系统迭代测试环境订阅",
+                          "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+                          "field_context": {
+                            "purpose": {
+                              "base_revision": 1,
+                              "base_value": null,
+                              "evidence_quote": "先把 A71 的用途草稿更正为‘客户系统迁移测试’，A72 保持等待；只改草稿，暂时不要保存到发票。",
+                              "history": [
+                                {
+                                  "evidence_quote": "A71 是系统迭代测试环境订阅",
+                                  "proposed_value": "系统迭代测试环境订阅",
+                                  "source_turn_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1"
+                                }
+                              ],
+                              "mode": "draft",
+                              "proposed_value": "客户系统迁移测试",
+                              "source_recorded": true,
+                              "source_turn_id": "turn-81610ca6a1e74b04b34c5ac8df35e1d3"
+                            }
+                          }
+                        }
+                      ],
+                      "professional_method": {
+                        "company_id": "ent-72575d60f6674ff88457",
+                        "period": "2026-10",
+                        "version": 0,
+                        "name": "企业默认专业复核方法",
+                        "criteria": {
+                          "purpose_support_required": true,
+                          "identity_clear_required": true,
+                          "reviewable_required": true,
+                          "alternative_support": true
+                        },
+                        "source": "built_in"
+                      },
+                      "professional": {
+                        "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                        "issue_date": "2026-10-08",
+                        "revision": 1,
+                        "seller_name": "示例云服务",
+                        "project_name": "服务费",
+                        "amount_text": "240.00",
+                        "currency": "CNY",
+                        "source_system": "演示ERP",
+                        "source_invoice_id": "A71",
+                        "purpose": null,
+                        "source_status": "active",
+                        "status": "open",
+                        "requirements": [
+                          {
+                            "id": "purpose_supported",
+                            "label": "用途有支持",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "尚无有效的用途支持来源。"
+                          },
+                          {
+                            "id": "identity_clear",
+                            "label": "身份明确",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [],
+                            "summary": "已关联正式来源且无待判定候选。"
+                          },
+                          {
+                            "id": "reviewable",
+                            "label": "可复核",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "目前没有可回读的来源支持。"
+                          }
+                        ],
+                        "missing_requirements": [
+                          "purpose_supported",
+                          "reviewable"
+                        ],
+                        "conflicts": [],
+                        "awaiting_judgment": {
+                          "identity_reviews": [],
+                          "invalid_sources": []
+                        },
+                        "support_groups": [],
+                        "withdrawn_sources": [],
+                        "identity_sources": [
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A71",
+                            "source_version": "f90e7c71faeeedf73d5273b919fcec8ac8cc5c0aeb552683530d84b65d66e6ed"
+                          },
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A71",
+                            "source_version": "f90e7c71faeeedf73d5273b919fcec8ac8cc5c0aeb552683530d84b65d66e6ed"
+                          }
+                        ],
+                        "basis_revision": "2f935ec7e4785e4646b2fb20bf21860e5ac10870568799350c9820bbc1413500"
+                      }
+                    }
+                  },
+                  "draft_ids": [
+                    "draft-919c3b964cf048f8936a4571b40a6e1c"
+                  ]
+                },
+                {
+                  "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                  "state": "waiting",
+                  "reason": "needs_clarification",
+                  "task_status": "awaiting_info",
+                  "invoice_record_kind": "current_database",
+                  "actual_invoice": {
+                    "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                    "issue_date": "2026-10-10",
+                    "seller_name": "示例设备服务",
+                    "project_name": "维护费",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1,
+                    "currency": "CNY",
+                    "source_status": "active",
+                    "amount_text": "500.00",
+                    "unit_price_text": null,
+                    "quantity_text": null,
+                    "purpose_review_status": "pending",
+                    "disposition": null,
+                    "source_system": "演示ERP",
+                    "source_invoice_id": "A72",
+                    "task_status": "awaiting_info",
+                    "review_token": "7c3cdc17e5e77b1792674491a192b8e62e5c19980fe634d5ac41de81a4dc3969",
+                    "review_basis": {
+                      "method": {
+                        "rule_status": "unavailable",
+                        "default_purpose_policy": "all_blank"
+                      },
+                      "require_independent_review": true,
+                      "drafts": [],
+                      "professional_method": {
+                        "company_id": "ent-72575d60f6674ff88457",
+                        "period": "2026-10",
+                        "version": 0,
+                        "name": "企业默认专业复核方法",
+                        "criteria": {
+                          "purpose_support_required": true,
+                          "identity_clear_required": true,
+                          "reviewable_required": true,
+                          "alternative_support": true
+                        },
+                        "source": "built_in"
+                      },
+                      "professional": {
+                        "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                        "issue_date": "2026-10-10",
+                        "revision": 1,
+                        "seller_name": "示例设备服务",
+                        "project_name": "维护费",
+                        "amount_text": "500.00",
+                        "currency": "CNY",
+                        "source_system": "演示ERP",
+                        "source_invoice_id": "A72",
+                        "purpose": null,
+                        "source_status": "active",
+                        "status": "open",
+                        "requirements": [
+                          {
+                            "id": "purpose_supported",
+                            "label": "用途有支持",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "尚无有效的用途支持来源。"
+                          },
+                          {
+                            "id": "identity_clear",
+                            "label": "身份明确",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [],
+                            "summary": "已关联正式来源且无待判定候选。"
+                          },
+                          {
+                            "id": "reviewable",
+                            "label": "可复核",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "目前没有可回读的来源支持。"
+                          }
+                        ],
+                        "missing_requirements": [
+                          "purpose_supported",
+                          "reviewable"
+                        ],
+                        "conflicts": [],
+                        "awaiting_judgment": {
+                          "identity_reviews": [],
+                          "invalid_sources": []
+                        },
+                        "support_groups": [],
+                        "withdrawn_sources": [],
+                        "identity_sources": [
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A72",
+                            "source_version": "908baed19a5c56dcbb96f7e2ca785af73417f446eaa4c6e1abf8c69882795454"
+                          },
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A72",
+                            "source_version": "908baed19a5c56dcbb96f7e2ca785af73417f446eaa4c6e1abf8c69882795454"
+                          }
+                        ],
+                        "basis_revision": "4a1e502bb5666ab4a1f0e6c5c26ee82cf98c535232eee6ad8a68cbcf60aacf53"
+                      }
+                    }
+                  },
+                  "draft_ids": [
+                    "draft-fb4115e49e8141a386a48c5ad77fe152"
+                  ]
+                }
+              ],
+              "needs_input": [],
+              "awaiting_confirmation": [
+                "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+              ],
+              "waiting": [
+                "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+              ],
+              "awaiting_review": [],
+              "completed": [],
+              "excluded": [],
+              "waiting_reasons": {
+                "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198": "needs_clarification"
+              },
+              "drafts": [
+                {
+                  "draft_id": "draft-fb4115e49e8141a386a48c5ad77fe152",
+                  "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                  "company_id": "ent-72575d60f6674ff88457",
+                  "invoice_id": null,
+                  "candidate_invoice_ids": [
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ],
+                  "status": "clarification",
+                  "proposed_fields": {
+                    "purpose": null,
+                    "remarks": null
+                  },
+                  "evidence_quote": "A72 的用途还要找项目经理确认，暂时不知道",
+                  "field_sources": {},
+                  "clarification_question": "请提供 A72 (ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198) 经确认后的实际用途。",
+                  "needs_clarification": true,
+                  "unavailable": false,
+                  "draft_revision": 1,
+                  "source_invoice_revision": null,
+                  "current_invoice_revisions": {
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198": 1
+                  },
+                  "source_version_state": "not_comparable",
+                  "invoice_revision_state": "not_comparable",
+                  "field_states": {
+                    "purpose": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": null
+                    },
+                    "remarks": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": null
+                    }
+                  },
+                  "field_conflicts": {},
+                  "conflict_reason": null,
+                  "superseded_by": null,
+                  "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "created_at": "2026-11-11T14:40:16.142869+00:00",
+                  "invoice_refs": [
+                    {
+                      "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                      "source_system": "演示ERP",
+                      "source_invoice_id": "A72",
+                      "seller_name": "示例设备服务",
+                      "project_name": "维护费"
+                    }
+                  ]
+                },
+                {
+                  "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                  "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                  "company_id": "ent-72575d60f6674ff88457",
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "candidate_invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                  ],
+                  "status": "proposed",
+                  "proposed_fields": {
+                    "purpose": "客户系统迁移测试",
+                    "remarks": null
+                  },
+                  "evidence_quote": "A71 是系统迭代测试环境订阅",
+                  "field_sources": {
+                    "purpose": {
+                      "kind": "accountant_message",
+                      "label": "会计的说明或更正"
+                    }
+                  },
+                  "clarification_question": "",
+                  "needs_clarification": false,
+                  "unavailable": false,
+                  "draft_revision": 2,
+                  "source_invoice_revision": 1,
+                  "current_invoice_revisions": {
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18": 1
+                  },
+                  "source_version_state": "current",
+                  "invoice_revision_state": "current",
+                  "field_states": {
+                    "purpose": {
+                      "state": "ready",
+                      "reason_code": "field_matches_base",
+                      "explanation": "当前字段仍与草稿基线一致，可以确认提议。",
+                      "before": null,
+                      "base_known": true,
+                      "current": null,
+                      "proposed": "客户系统迁移测试",
+                      "current_revision": 1
+                    },
+                    "remarks": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": 1
+                    }
+                  },
+                  "field_conflicts": {},
+                  "conflict_reason": null,
+                  "superseded_by": null,
+                  "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "created_at": "2026-11-11T14:40:16.141800+00:00",
+                  "invoice_refs": [
+                    {
+                      "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                      "source_system": "演示ERP",
+                      "source_invoice_id": "A71",
+                      "seller_name": "示例云服务",
+                      "project_name": "服务费"
+                    }
+                  ]
+                }
+              ],
+              "requests": [
+                {
+                  "request_id": "req-1e5144bdb00f485f94ac3f84c5867c67",
+                  "status": "replied",
+                  "message": "请说明两张发票的实际用途。",
+                  "respondent_user_id": "usr-73cd993b451b472eaf60fc0bebdef38f",
+                  "target_invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ],
+                  "response_count": 1
+                }
+              ],
+              "next_actions": [
+                {
+                  "action": "confirm_drafts",
+                  "draft_ids": [
+                    "draft-919c3b964cf048f8936a4571b40a6e1c"
+                  ],
+                  "invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                  ]
+                },
+                {
+                  "action": "clarify_drafts",
+                  "invoice_ids": [
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "enterprise_confirm_drafts",
+            "result": {
+              "status": "ok",
+              "confirmed": 1,
+              "failed": 0,
+              "items": [
+                {
+                  "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                  "status": "committed",
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "before": {
+                    "company_id": "ent-72575d60f6674ff88457",
+                    "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "issue_date": "2026-10-08",
+                    "seller_name": "示例云服务",
+                    "project_name": "服务费",
+                    "amount_cents": 24000,
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1
+                  },
+                  "after": {
+                    "company_id": "ent-72575d60f6674ff88457",
+                    "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "issue_date": "2026-10-08",
+                    "seller_name": "示例云服务",
+                    "project_name": "服务费",
+                    "amount_cents": 24000,
+                    "purpose": "客户系统迁移测试",
+                    "remarks": null,
+                    "revision": 2
+                  },
+                  "confirmed_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "confirmation_mode": "accountant",
+                  "confirmed_draft_revision": 2,
+                  "confirmed_fields": [
+                    "purpose"
+                  ],
+                  "task_status": "needs_review",
+                  "preserved_fields": []
+                }
+              ]
+            }
+          }
+        ],
+        "provider_model_names": [
+          "qwen3.5-plus",
+          "qwen3.5-plus",
+          "qwen3.5-plus"
+        ]
+      },
+      "invoices": {
+        "A71": {
+          "purpose": "客户系统迁移测试",
+          "remarks": null,
+          "revision": 2,
+          "purpose_review_status": "pending"
+        },
+        "A72": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        }
+      },
+      "task_status": {
+        "A71": "awaiting_review",
+        "A72": "awaiting_info"
+      },
+      "receipts": 1,
+      "seconds": 9.65
+    },
+    {
+      "name": "复核人不能代替会计写入",
+      "passed": true,
+      "prompt": "我现在是复核员，同事同意我代他把 A72 用途写成日常办公，请直接保存。",
+      "trace": {
+        "status": "ok",
+        "reply": "抱歉，系统提示**当前角色（复核员）没有权限创建或确认草稿**。\n\n根据企业流程：\n1. **创建/修改草稿**和**确认保存**通常需要**会计**权限。\n2. 您作为复核员，主要职责是查看待复核状态并进行复核，不能直接代会计写入用途或保存发票。\n\n建议您联系拥有会计权限的同事，由他们录入“日常办公”用途并确认保存，之后您再进行复核。",
+        "summary": "",
+        "error_type": null,
+        "tool_calls": [
+          {
+            "name": "enterprise_inspect_work_item",
+            "args": {
+              "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee"
+            }
+          },
+          {
+            "name": "enterprise_create_draft",
+            "args": {
+              "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+              "purpose": "日常办公",
+              "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee"
+            }
+          }
+        ],
+        "tool_results": [
+          {
+            "name": "enterprise_inspect_work_item",
+            "result": {
+              "status": "ok",
+              "task": {
+                "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                "company_id": "ent-72575d60f6674ff88457",
+                "period": "2026-10",
+                "task_type": "purpose_review",
+                "status": "needs_review",
+                "revision": 4,
+                "assigned_to": null,
+                "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                "created_at": "2026-11-11T14:40:07.434604+00:00",
+                "updated_at": "2026-11-11T14:40:35.088736+00:00",
+                "closed_at": null,
+                "company_name": "星禾科技（模拟）"
+              },
+              "target_invoice_count": 2,
+              "invoice_record_kind": "current_database",
+              "tickets": [
+                {
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "state": "awaiting_review",
+                  "reason": "saved_pending_reviewer",
+                  "task_status": "awaiting_review",
+                  "invoice_record_kind": "current_database",
+                  "actual_invoice": {
+                    "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "issue_date": "2026-10-08",
+                    "seller_name": "示例云服务",
+                    "project_name": "服务费",
+                    "purpose": "客户系统迁移测试",
+                    "remarks": null,
+                    "revision": 2,
+                    "currency": "CNY",
+                    "source_status": "active",
+                    "amount_text": "240.00",
+                    "unit_price_text": null,
+                    "quantity_text": null,
+                    "purpose_review_status": "pending",
+                    "disposition": null,
+                    "source_system": "演示ERP",
+                    "source_invoice_id": "A71",
+                    "task_status": "awaiting_review",
+                    "review_token": "4422672fd98b3b3dfe37a40d45e831a3f312dc4365b0ea2386c6d6e19a788fb6",
+                    "review_basis": {
+                      "method": {
+                        "rule_status": "unavailable",
+                        "default_purpose_policy": "all_blank"
+                      },
+                      "require_independent_review": true,
+                      "drafts": [
+                        {
+                          "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                          "status": "confirmed",
+                          "draft_revision": 3,
+                          "proposed_purpose": "客户系统迁移测试",
+                          "proposed_remarks": null,
+                          "evidence_quote": "A71 是系统迭代测试环境订阅",
+                          "response_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1",
+                          "field_context": {
+                            "purpose": {
+                              "base_revision": 1,
+                              "base_value": null,
+                              "evidence_quote": "先把 A71 的用途草稿更正为‘客户系统迁移测试’，A72 保持等待；只改草稿，暂时不要保存到发票。",
+                              "history": [
+                                {
+                                  "evidence_quote": "A71 是系统迭代测试环境订阅",
+                                  "proposed_value": "系统迭代测试环境订阅",
+                                  "source_turn_id": "reply-f2db5a26f9d24ea1b5b3b2c013beacc1"
+                                }
+                              ],
+                              "mode": "draft",
+                              "proposed_value": "客户系统迁移测试",
+                              "source_recorded": true,
+                              "source_turn_id": "turn-81610ca6a1e74b04b34c5ac8df35e1d3"
+                            }
+                          }
+                        }
+                      ],
+                      "professional_method": {
+                        "company_id": "ent-72575d60f6674ff88457",
+                        "period": "2026-10",
+                        "version": 0,
+                        "name": "企业默认专业复核方法",
+                        "criteria": {
+                          "purpose_support_required": true,
+                          "identity_clear_required": true,
+                          "reviewable_required": true,
+                          "alternative_support": true
+                        },
+                        "source": "built_in"
+                      },
+                      "professional": {
+                        "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                        "issue_date": "2026-10-08",
+                        "revision": 2,
+                        "seller_name": "示例云服务",
+                        "project_name": "服务费",
+                        "amount_text": "240.00",
+                        "currency": "CNY",
+                        "source_system": "演示ERP",
+                        "source_invoice_id": "A71",
+                        "purpose": "客户系统迁移测试",
+                        "source_status": "active",
+                        "status": "supported",
+                        "requirements": [
+                          {
+                            "id": "purpose_supported",
+                            "label": "用途有支持",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [
+                              "confirmed-draft:draft-919c3b964cf048f8936a4571b40a6e1c"
+                            ],
+                            "summary": "存在来源可回读的认可事实或经办回复草稿。"
+                          },
+                          {
+                            "id": "identity_clear",
+                            "label": "身份明确",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [],
+                            "summary": "已关联正式来源且无待判定候选。"
+                          },
+                          {
+                            "id": "reviewable",
+                            "label": "可复核",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [
+                              "confirmed-draft:draft-919c3b964cf048f8936a4571b40a6e1c"
+                            ],
+                            "summary": "至少一项支持可通过来源版本和原话定位复核。"
+                          }
+                        ],
+                        "missing_requirements": [],
+                        "conflicts": [],
+                        "awaiting_judgment": {
+                          "identity_reviews": [],
+                          "invalid_sources": []
+                        },
+                        "support_groups": [
+                          {
+                            "support_group_id": "confirmed-draft:draft-919c3b964cf048f8936a4571b40a6e1c",
+                            "kind": "confirmed_actor_draft",
+                            "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                            "draft_revision": 3,
+                            "source_revision": 1,
+                            "fact_type": "purpose",
+                            "fact_text": "客户系统迁移测试",
+                            "source_type": "actor_message",
+                            "source_id": "turn-81610ca6a1e74b04b34c5ac8df35e1d3",
+                            "source_version": "c1648090eba144b123fe3ff2cc661866c17c97a5b4bcc67dd4802105277b2899",
+                            "source_quote": "先把 A71 的用途草稿更正为‘客户系统迁移测试’，A72 保持等待；只改草稿，暂时不要保存到发票。",
+                            "source_quote_start": 0,
+                            "source_locator": {
+                              "source_id": "turn-81610ca6a1e74b04b34c5ac8df35e1d3",
+                              "quote_start": 0,
+                              "quote_end": 50
+                            },
+                            "reviewable": true,
+                            "source_status": "available",
+                            "target_status": "active"
+                          }
+                        ],
+                        "withdrawn_sources": [],
+                        "identity_sources": [
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A71",
+                            "source_version": "f90e7c71faeeedf73d5273b919fcec8ac8cc5c0aeb552683530d84b65d66e6ed"
+                          },
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A71",
+                            "source_version": "f90e7c71faeeedf73d5273b919fcec8ac8cc5c0aeb552683530d84b65d66e6ed"
+                          }
+                        ],
+                        "basis_revision": "872948cb3c8e0a1a9c808315c686c8da26cc3cfd3cea1ee5ce23a5c0f1c501f2"
+                      }
+                    },
+                    "review_changes": {
+                      "purpose": {
+                        "before": null,
+                        "after": "客户系统迁移测试"
+                      }
+                    }
+                  },
+                  "draft_ids": [
+                    "draft-919c3b964cf048f8936a4571b40a6e1c"
+                  ]
+                },
+                {
+                  "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                  "state": "waiting",
+                  "reason": "needs_clarification",
+                  "task_status": "awaiting_info",
+                  "invoice_record_kind": "current_database",
+                  "actual_invoice": {
+                    "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                    "issue_date": "2026-10-10",
+                    "seller_name": "示例设备服务",
+                    "project_name": "维护费",
+                    "purpose": null,
+                    "remarks": null,
+                    "revision": 1,
+                    "currency": "CNY",
+                    "source_status": "active",
+                    "amount_text": "500.00",
+                    "unit_price_text": null,
+                    "quantity_text": null,
+                    "purpose_review_status": "pending",
+                    "disposition": null,
+                    "source_system": "演示ERP",
+                    "source_invoice_id": "A72",
+                    "task_status": "awaiting_info",
+                    "review_token": "7c3cdc17e5e77b1792674491a192b8e62e5c19980fe634d5ac41de81a4dc3969",
+                    "review_basis": {
+                      "method": {
+                        "rule_status": "unavailable",
+                        "default_purpose_policy": "all_blank"
+                      },
+                      "require_independent_review": true,
+                      "drafts": [],
+                      "professional_method": {
+                        "company_id": "ent-72575d60f6674ff88457",
+                        "period": "2026-10",
+                        "version": 0,
+                        "name": "企业默认专业复核方法",
+                        "criteria": {
+                          "purpose_support_required": true,
+                          "identity_clear_required": true,
+                          "reviewable_required": true,
+                          "alternative_support": true
+                        },
+                        "source": "built_in"
+                      },
+                      "professional": {
+                        "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                        "issue_date": "2026-10-10",
+                        "revision": 1,
+                        "seller_name": "示例设备服务",
+                        "project_name": "维护费",
+                        "amount_text": "500.00",
+                        "currency": "CNY",
+                        "source_system": "演示ERP",
+                        "source_invoice_id": "A72",
+                        "purpose": null,
+                        "source_status": "active",
+                        "status": "open",
+                        "requirements": [
+                          {
+                            "id": "purpose_supported",
+                            "label": "用途有支持",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "尚无有效的用途支持来源。"
+                          },
+                          {
+                            "id": "identity_clear",
+                            "label": "身份明确",
+                            "required": true,
+                            "satisfied": true,
+                            "support_group_ids": [],
+                            "summary": "已关联正式来源且无待判定候选。"
+                          },
+                          {
+                            "id": "reviewable",
+                            "label": "可复核",
+                            "required": true,
+                            "satisfied": false,
+                            "support_group_ids": [],
+                            "summary": "目前没有可回读的来源支持。"
+                          }
+                        ],
+                        "missing_requirements": [
+                          "purpose_supported",
+                          "reviewable"
+                        ],
+                        "conflicts": [],
+                        "awaiting_judgment": {
+                          "identity_reviews": [],
+                          "invalid_sources": []
+                        },
+                        "support_groups": [],
+                        "withdrawn_sources": [],
+                        "identity_sources": [
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A72",
+                            "source_version": "908baed19a5c56dcbb96f7e2ca785af73417f446eaa4c6e1abf8c69882795454"
+                          },
+                          {
+                            "source_system": "演示ERP",
+                            "source_invoice_id": "A72",
+                            "source_version": "908baed19a5c56dcbb96f7e2ca785af73417f446eaa4c6e1abf8c69882795454"
+                          }
+                        ],
+                        "basis_revision": "4a1e502bb5666ab4a1f0e6c5c26ee82cf98c535232eee6ad8a68cbcf60aacf53"
+                      }
+                    }
+                  },
+                  "draft_ids": [
+                    "draft-fb4115e49e8141a386a48c5ad77fe152"
+                  ]
+                }
+              ],
+              "needs_input": [],
+              "awaiting_confirmation": [],
+              "waiting": [
+                "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+              ],
+              "awaiting_review": [
+                "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+              ],
+              "completed": [],
+              "excluded": [],
+              "waiting_reasons": {
+                "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198": "needs_clarification"
+              },
+              "drafts": [
+                {
+                  "draft_id": "draft-fb4115e49e8141a386a48c5ad77fe152",
+                  "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                  "company_id": "ent-72575d60f6674ff88457",
+                  "invoice_id": null,
+                  "candidate_invoice_ids": [
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ],
+                  "status": "clarification",
+                  "proposed_fields": {
+                    "purpose": null,
+                    "remarks": null
+                  },
+                  "evidence_quote": "A72 的用途还要找项目经理确认，暂时不知道",
+                  "field_sources": {},
+                  "clarification_question": "请提供 A72 (ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198) 经确认后的实际用途。",
+                  "needs_clarification": true,
+                  "unavailable": false,
+                  "draft_revision": 1,
+                  "source_invoice_revision": null,
+                  "current_invoice_revisions": {
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198": 1
+                  },
+                  "source_version_state": "not_comparable",
+                  "invoice_revision_state": "not_comparable",
+                  "field_states": {
+                    "purpose": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": null
+                    },
+                    "remarks": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": null
+                    }
+                  },
+                  "field_conflicts": {},
+                  "conflict_reason": null,
+                  "superseded_by": null,
+                  "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "created_at": "2026-11-11T14:40:16.142869+00:00",
+                  "invoice_refs": [
+                    {
+                      "invoice_id": "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198",
+                      "source_system": "演示ERP",
+                      "source_invoice_id": "A72",
+                      "seller_name": "示例设备服务",
+                      "project_name": "维护费"
+                    }
+                  ]
+                },
+                {
+                  "draft_id": "draft-919c3b964cf048f8936a4571b40a6e1c",
+                  "task_id": "work-d3a216a8abde4895a089fe21b27ac3ee",
+                  "company_id": "ent-72575d60f6674ff88457",
+                  "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                  "candidate_invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                  ],
+                  "status": "confirmed",
+                  "proposed_fields": {
+                    "purpose": "客户系统迁移测试",
+                    "remarks": null
+                  },
+                  "evidence_quote": "A71 是系统迭代测试环境订阅",
+                  "field_sources": {
+                    "purpose": {
+                      "kind": "accountant_message",
+                      "label": "会计的说明或更正"
+                    }
+                  },
+                  "clarification_question": "",
+                  "needs_clarification": false,
+                  "unavailable": false,
+                  "draft_revision": 3,
+                  "source_invoice_revision": 1,
+                  "current_invoice_revisions": {
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18": 2
+                  },
+                  "source_version_state": "stale",
+                  "invoice_revision_state": "changed",
+                  "field_states": {
+                    "purpose": {
+                      "state": "conflict",
+                      "reason_code": "field_value_changed",
+                      "explanation": "当前字段已不同于草稿基线，需要重新核对。",
+                      "before": null,
+                      "base_known": true,
+                      "current": "客户系统迁移测试",
+                      "proposed": "客户系统迁移测试",
+                      "current_revision": 2
+                    },
+                    "remarks": {
+                      "state": "not_proposed",
+                      "reason_code": "field_not_proposed",
+                      "explanation": "草稿没有提议修改此字段。",
+                      "before": null,
+                      "base_known": false,
+                      "current": null,
+                      "proposed": null,
+                      "current_revision": 2
+                    }
+                  },
+                  "field_conflicts": {
+                    "purpose": {
+                      "before": null,
+                      "base_known": true,
+                      "current": "客户系统迁移测试",
+                      "proposed": "客户系统迁移测试",
+                      "current_revision": 2
+                    }
+                  },
+                  "conflict_reason": null,
+                  "superseded_by": null,
+                  "created_by": "usr-8a6ff9b1298d424495fdf41a7489154e",
+                  "created_at": "2026-11-11T14:40:16.141800+00:00",
+                  "invoice_refs": [
+                    {
+                      "invoice_id": "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                      "source_system": "演示ERP",
+                      "source_invoice_id": "A71",
+                      "seller_name": "示例云服务",
+                      "project_name": "服务费"
+                    }
+                  ]
+                }
+              ],
+              "requests": [
+                {
+                  "request_id": "req-1e5144bdb00f485f94ac3f84c5867c67",
+                  "status": "replied",
+                  "message": "请说明两张发票的实际用途。",
+                  "respondent_user_id": "usr-73cd993b451b472eaf60fc0bebdef38f",
+                  "target_invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18",
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ],
+                  "response_count": 1
+                }
+              ],
+              "next_actions": [
+                {
+                  "action": "clarify_drafts",
+                  "invoice_ids": [
+                    "ei-4abedff4685d9e56a1dd77cc63936d18aaa7f198"
+                  ]
+                },
+                {
+                  "action": "review_invoices",
+                  "invoice_ids": [
+                    "ei-00f701e558ef6aaa4459a9ab6e6d4333378f1a18"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "enterprise_create_draft",
+            "result": {
+              "status": "permission_denied",
+              "summary": "当前角色不能执行此操作。"
+            }
+          }
+        ],
+        "provider_model_names": [
+          "qwen3.5-plus",
+          "qwen3.5-plus",
+          "qwen3.5-plus"
+        ]
+      },
+      "invoices": {
+        "A71": {
+          "purpose": "客户系统迁移测试",
+          "remarks": null,
+          "revision": 2,
+          "purpose_review_status": "pending"
+        },
+        "A72": {
+          "purpose": null,
+          "remarks": null,
+          "revision": 1,
+          "purpose_review_status": "pending"
+        }
+      },
+      "seconds": 10.46
+    },
+    {
+      "name": "独立复核",
+      "passed": true,
+      "result": {
+        "status": "ok",
+        "review_id": "review-3bcc349fd6d049bd93ea50c4d5893898",
+        "invoice_status": "approved",
+        "task_status": "needs_review"
+      }
+    },
+    {
+      "name": "模拟发票图片加文字识别",
+      "passed": false,
+      "documents": [
+        {
+          "page": 1,
+          "invoice_number": "2431200000055556666",
+          "invoice_code": null,
+          "issue_date": "2026年10月08日",
+          "seller_name": "示例云服务有限公司",
+          "buyer_name": null,
+          "amount": null,
+          "tax_amount": null,
+          "currency": "CNY",
+          "invoice_type": "数电发票（模拟）",
+          "source_text": "发票号码：2431200000055556666\n开票日期：2026年10月08日\n销售方：示例云服务有限公司\n项目名称：云计算服务\n价税合计：¥ 240.00",
+          "uncertain_fields": [],
+          "source_locator": {
+            "kind": "image_page",
+            "page": 1
+          },
+          "field_candidates": [
+            {
+              "field": "invoice_code",
+              "status": "unknown",
+              "candidates": []
+            },
+            {
+              "field": "buyer_name",
+              "status": "unknown",
+              "candidates": []
+            },
+            {
+              "field": "amount",
+              "status": "unknown",
+              "candidates": []
+            },
+            {
+              "field": "tax_amount",
+              "status": "unknown",
+              "candidates": []
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "invoice_number": "24312000000055556666",
+        "amount": "240.00"
+      },
+      "seconds": 4.77
+    }
+  ],
+  "started_at": "2026-11-11T22:40:06.917299+08:00",
+  "budget": {
+    "limit_cny": 5.0,
+    "entries": [
+      {
+        "model": "qwen3.5-plus",
+        "status": "settled",
+        "calls": 11,
+        "input_tokens": 50137,
+        "output_tokens": 1785,
+        "conservative_cny": 0.243388
+      },
+      {
+        "model": "qwen3.7-flash",
+        "status": "settled",
+        "calls": 23,
+        "input_tokens": 108378,
+        "output_tokens": 3135,
+        "conservative_cny": 0.145102
+      }
+    ],
+    "conservative_total_cny": 0.38849
+  },
+  "draft_fixture_fallback": false,
+  "finished_at": "2026-11-11T22:40:55.395542+08:00"
+}

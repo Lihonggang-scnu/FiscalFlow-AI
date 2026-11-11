@@ -58,6 +58,25 @@ CREATE TABLE IF NOT EXISTS enterprise_assistant_attachments (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS enterprise_assistant_attachment_session ON enterprise_assistant_attachments(session_id,user_id,created_at);
+CREATE TABLE IF NOT EXISTS enterprise_actor_messages (
+    turn_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(turn_id,user_id,company_id,task_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_correction_links (
+    original_task_id TEXT NOT NULL,
+    followup_task_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(original_task_id,invoice_id,event_id)
+);
 CREATE TABLE IF NOT EXISTS enterprise_memberships (
     user_id TEXT NOT NULL,
     company_id TEXT NOT NULL,
@@ -100,6 +119,7 @@ CREATE TABLE IF NOT EXISTS enterprise_document_identities (
     PRIMARY KEY(company_id,invoice_code,invoice_number),
     FOREIGN KEY(company_id,invoice_id) REFERENCES invoices(company_id,invoice_id)
 );
+CREATE INDEX IF NOT EXISTS enterprise_document_identity_invoice ON enterprise_document_identities(company_id,invoice_id);
 CREATE TABLE IF NOT EXISTS enterprise_invoice_extra (
     company_id TEXT NOT NULL,
     invoice_id TEXT NOT NULL,
@@ -123,9 +143,25 @@ CREATE TABLE IF NOT EXISTS enterprise_import_previews (
     file_hash TEXT NOT NULL,
     rows_json TEXT NOT NULL,
     issues_json TEXT NOT NULL,
+    file_content BLOB,
     status TEXT NOT NULL DEFAULT 'pending',
     created_at TEXT NOT NULL,
     expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS enterprise_import_source_policies (
+    company_id TEXT NOT NULL,
+    source_system TEXT NOT NULL,
+    mode TEXT NOT NULL CHECK(mode IN ('review','trusted_sync')),
+    revision INTEGER NOT NULL,
+    updated_by TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(company_id,source_system)
+);
+CREATE TABLE IF NOT EXISTS enterprise_import_preview_policies (
+    preview_id TEXT PRIMARY KEY,
+    mode TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    FOREIGN KEY(preview_id) REFERENCES enterprise_import_previews(preview_id)
 );
 CREATE TABLE IF NOT EXISTS enterprise_imports (
     import_id TEXT PRIMARY KEY,
@@ -147,8 +183,159 @@ CREATE TABLE IF NOT EXISTS enterprise_import_rows (
     content_hash TEXT NOT NULL,
     source_json TEXT NOT NULL,
     status TEXT NOT NULL,
+    identity_review_id TEXT,
     created_at TEXT NOT NULL,
     PRIMARY KEY(import_id,row_number)
+);
+CREATE TABLE IF NOT EXISTS enterprise_source_documents (
+    document_id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    import_id TEXT NOT NULL UNIQUE,
+    source_system TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    file_hash TEXT NOT NULL,
+    media_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+    file_content BLOB,
+    original_available INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(import_id) REFERENCES enterprise_imports(import_id),
+    FOREIGN KEY(company_id) REFERENCES companies(company_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_identity_reviews (
+    identity_review_id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    import_id TEXT NOT NULL,
+    row_number INTEGER NOT NULL,
+    source_system TEXT NOT NULL,
+    source_invoice_id TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    file_hash TEXT NOT NULL,
+    source_json TEXT NOT NULL,
+    locator_json TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','deferred','linked','new_invoice','non_invoice','rejected')),
+    revision INTEGER NOT NULL DEFAULT 1,
+    invoice_id TEXT,
+    resolution_action TEXT,
+    resolution_note TEXT,
+    resolved_by TEXT,
+    resolved_at TEXT,
+    last_command_id TEXT,
+    last_result_json TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(import_id,row_number),
+    FOREIGN KEY(import_id) REFERENCES enterprise_imports(import_id),
+    FOREIGN KEY(document_id) REFERENCES enterprise_source_documents(document_id),
+    FOREIGN KEY(company_id) REFERENCES companies(company_id),
+    FOREIGN KEY(company_id,invoice_id) REFERENCES invoices(company_id,invoice_id)
+);
+CREATE INDEX IF NOT EXISTS enterprise_identity_review_queue ON enterprise_identity_reviews(company_id,status,created_at);
+CREATE TABLE IF NOT EXISTS enterprise_identity_review_actions (
+    action_id TEXT PRIMARY KEY,
+    identity_review_id TEXT NOT NULL,
+    command_id TEXT NOT NULL UNIQUE,
+    actor_user_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(identity_review_id) REFERENCES enterprise_identity_reviews(identity_review_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_source_aliases (
+    alias_id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    source_system TEXT NOT NULL,
+    source_invoice_id TEXT NOT NULL,
+    invoice_id TEXT,
+    document_id TEXT NOT NULL,
+    identity_review_id TEXT,
+    row_number INTEGER NOT NULL,
+    locator_json TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    source_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'linked' CHECK(status IN ('linked','pending_identity','non_invoice','rejected')),
+    created_at TEXT NOT NULL,
+    UNIQUE(company_id,source_system,source_invoice_id,document_id,row_number),
+    FOREIGN KEY(company_id) REFERENCES companies(company_id),
+    FOREIGN KEY(company_id,invoice_id) REFERENCES invoices(company_id,invoice_id),
+    FOREIGN KEY(document_id) REFERENCES enterprise_source_documents(document_id),
+    FOREIGN KEY(identity_review_id) REFERENCES enterprise_identity_reviews(identity_review_id)
+);
+CREATE INDEX IF NOT EXISTS enterprise_source_alias_invoice ON enterprise_source_aliases(company_id,invoice_id,created_at);
+CREATE INDEX IF NOT EXISTS enterprise_source_alias_identity ON enterprise_source_aliases(identity_review_id);
+CREATE TABLE IF NOT EXISTS enterprise_professional_methods (
+    company_id TEXT NOT NULL,
+    period TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    method_name TEXT NOT NULL,
+    criteria_json TEXT NOT NULL,
+    previous_version INTEGER NOT NULL,
+    operation_id TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(company_id,period,version),
+    UNIQUE(company_id,period,operation_id),
+    FOREIGN KEY(company_id) REFERENCES companies(company_id),
+    FOREIGN KEY(created_by) REFERENCES enterprise_users(user_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_professional_facts (
+    fact_id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    period TEXT NOT NULL,
+    fact_type TEXT NOT NULL CHECK(fact_type IN ('purpose','identity','other')),
+    source_type TEXT NOT NULL CHECK(source_type IN ('requester_reply','source_document','assistant_attachment')),
+    source_id TEXT NOT NULL,
+    source_version TEXT NOT NULL,
+    source_quote TEXT NOT NULL,
+    source_quote_start INTEGER NOT NULL,
+    fact_text TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(company_id) REFERENCES companies(company_id),
+    FOREIGN KEY(created_by) REFERENCES enterprise_users(user_id)
+);
+CREATE INDEX IF NOT EXISTS enterprise_professional_fact_period ON enterprise_professional_facts(company_id,period,created_at);
+CREATE TABLE IF NOT EXISTS enterprise_professional_fact_targets (
+    fact_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    current_revision INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL CHECK(status IN ('active','withdrawn')),
+    text_override TEXT,
+    source_locator_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(fact_id,invoice_id),
+    FOREIGN KEY(fact_id) REFERENCES enterprise_professional_facts(fact_id),
+    FOREIGN KEY(company_id,invoice_id) REFERENCES invoices(company_id,invoice_id)
+);
+CREATE INDEX IF NOT EXISTS enterprise_professional_fact_target_invoice ON enterprise_professional_fact_targets(company_id,invoice_id,status);
+CREATE TABLE IF NOT EXISTS enterprise_professional_fact_target_history (
+    fact_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('active','withdrawn')),
+    text_override TEXT,
+    change_reason TEXT NOT NULL,
+    changed_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(fact_id,invoice_id,revision),
+    FOREIGN KEY(fact_id,invoice_id) REFERENCES enterprise_professional_fact_targets(fact_id,invoice_id),
+    FOREIGN KEY(company_id,invoice_id) REFERENCES invoices(company_id,invoice_id),
+    FOREIGN KEY(changed_by) REFERENCES enterprise_users(user_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_professional_commands (
+    command_id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    actor_user_id TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(company_id) REFERENCES companies(company_id),
+    FOREIGN KEY(actor_user_id) REFERENCES enterprise_users(user_id)
 );
 CREATE TABLE IF NOT EXISTS enterprise_import_issues (
     issue_id TEXT PRIMARY KEY,
@@ -219,12 +406,64 @@ CREATE TABLE IF NOT EXISTS enterprise_responses (
     request_id TEXT NOT NULL,
     submitted_by TEXT NOT NULL,
     reply_text TEXT NOT NULL,
+    idempotency_key TEXT,
+    payload_hash TEXT,
     late INTEGER NOT NULL DEFAULT 0,
     extraction_status TEXT NOT NULL DEFAULT 'pending' CHECK(extraction_status IN ('pending','complete','failed')),
     extraction_outcome TEXT,
     processed_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY(request_id) REFERENCES enterprise_requests(request_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_original_attachments (
+    attachment_id TEXT PRIMARY KEY,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('reply','assistant_turn')),
+    source_id TEXT NOT NULL,
+    response_id TEXT,
+    request_id TEXT,
+    session_id TEXT,
+    task_id TEXT,
+    associated_turn_id TEXT,
+    company_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    upload_key TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    original_content BLOB NOT NULL,
+    source_revision INTEGER NOT NULL DEFAULT 1,
+    processing_status TEXT NOT NULL DEFAULT 'pending' CHECK(processing_status IN ('pending','processing','complete','failed','cancelled')),
+    processing_generation INTEGER NOT NULL DEFAULT 0,
+    processing_run_id TEXT,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    result_revision INTEGER NOT NULL DEFAULT 0,
+    page_count INTEGER,
+    prepared_json TEXT,
+    recognized_json TEXT,
+    last_error_code TEXT,
+    last_error_message TEXT,
+    started_at TEXT,
+    processed_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(source_kind,source_id,upload_key),
+    FOREIGN KEY(response_id) REFERENCES enterprise_responses(response_id),
+    FOREIGN KEY(request_id) REFERENCES enterprise_requests(request_id),
+    FOREIGN KEY(company_id) REFERENCES companies(company_id)
+);
+CREATE INDEX IF NOT EXISTS enterprise_attachment_request ON enterprise_original_attachments(request_id,created_at);
+CREATE INDEX IF NOT EXISTS enterprise_attachment_session ON enterprise_original_attachments(session_id,source_id,created_at);
+CREATE TABLE IF NOT EXISTS enterprise_assistant_upload_batches (
+    session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    upload_key TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','running','completed','needs_attention')),
+    turn_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(session_id,user_id,upload_key)
 );
 CREATE TABLE IF NOT EXISTS enterprise_drafts (
     draft_id TEXT PRIMARY KEY,
@@ -254,6 +493,32 @@ CREATE TABLE IF NOT EXISTS enterprise_drafts (
     FOREIGN KEY(task_id) REFERENCES enterprise_work_items(task_id)
 );
 CREATE INDEX IF NOT EXISTS enterprise_drafts_task ON enterprise_drafts(task_id,status,created_at);
+CREATE TABLE IF NOT EXISTS enterprise_import_drafts (
+    draft_id TEXT PRIMARY KEY,
+    import_id TEXT NOT NULL,
+    row_number INTEGER NOT NULL,
+    conflict_id TEXT,
+    auto_mode TEXT NOT NULL,
+    policy_revision INTEGER NOT NULL,
+    FOREIGN KEY(draft_id) REFERENCES enterprise_drafts(draft_id),
+    FOREIGN KEY(import_id) REFERENCES enterprise_imports(import_id)
+);
+CREATE TABLE IF NOT EXISTS enterprise_field_decisions (
+    task_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    field TEXT NOT NULL CHECK(field IN ('purpose','remarks')),
+    decision_revision INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(task_id,invoice_id,field)
+);
+CREATE TABLE IF NOT EXISTS enterprise_stale_candidates (
+    candidate_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    response_id TEXT NOT NULL,
+    invoice_id TEXT NOT NULL,
+    fields_json TEXT NOT NULL,
+    candidate_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS enterprise_reviews (
     review_id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL,
@@ -312,6 +577,95 @@ class EnterpriseDatabase(TaxDatabase):
         # within one request; each request still owns its own SQLite connection.
         super().__init__(path, check_same_thread=False)
         self.connection.executescript(ENTERPRISE_SCHEMA)
+        schema_version = self.connection.execute("SELECT value FROM meta WHERE key='enterprise_schema_version'").fetchone()
+        preview_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_import_previews)")}
+        import_row_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_import_rows)")}
+        attachment_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_original_attachments)")}
+        response_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_responses)")}
+        if (not schema_version or int(schema_version["value"]) < 6 or "file_content" not in preview_columns or
+                "identity_review_id" not in import_row_columns or "processing_run_id" not in attachment_columns or "associated_turn_id" not in attachment_columns or
+                "idempotency_key" not in response_columns or "payload_hash" not in response_columns):
+            self.connection.execute("BEGIN IMMEDIATE")
+            try:
+                preview_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_import_previews)")}
+                import_row_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_import_rows)")}
+                attachment_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_original_attachments)")}
+                response_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_responses)")}
+                if "file_content" not in preview_columns:
+                    self.connection.execute("ALTER TABLE enterprise_import_previews ADD COLUMN file_content BLOB")
+                if "identity_review_id" not in import_row_columns:
+                    self.connection.execute("ALTER TABLE enterprise_import_rows ADD COLUMN identity_review_id TEXT")
+                if "processing_run_id" not in attachment_columns:
+                    self.connection.execute("ALTER TABLE enterprise_original_attachments ADD COLUMN processing_run_id TEXT")
+                if "associated_turn_id" not in attachment_columns:
+                    self.connection.execute("ALTER TABLE enterprise_original_attachments ADD COLUMN associated_turn_id TEXT")
+                if "idempotency_key" not in response_columns:
+                    self.connection.execute("ALTER TABLE enterprise_responses ADD COLUMN idempotency_key TEXT")
+                if "payload_hash" not in response_columns:
+                    self.connection.execute("ALTER TABLE enterprise_responses ADD COLUMN payload_hash TEXT")
+                self.connection.execute(
+                    """INSERT OR IGNORE INTO enterprise_source_documents
+                       (document_id,company_id,import_id,source_system,filename,file_hash,media_type,file_content,original_available,created_at)
+                       SELECT 'legacy-'||import_id,company_id,import_id,source_system,filename,file_hash,'application/octet-stream',NULL,0,created_at
+                       FROM enterprise_imports"""
+                )
+                self.connection.execute(
+                    """INSERT OR IGNORE INTO enterprise_identity_reviews
+                       (identity_review_id,company_id,import_id,row_number,source_system,source_invoice_id,content_hash,file_hash,
+                        source_json,locator_json,document_id,reason,status,revision,created_at,updated_at)
+                       SELECT 'legacy-review-'||r.import_id||'-'||r.row_number,r.company_id,r.import_id,r.row_number,
+                              r.source_system,r.source_invoice_id,r.content_hash,d.file_hash,r.source_json,
+                              json_object('row_number',r.row_number,'original_available',d.original_available),d.document_id,
+                              '历史导入曾标记为身份待核对；原始文件未保存。','open',1,r.created_at,r.created_at
+                       FROM enterprise_import_rows r JOIN enterprise_source_documents d ON d.import_id=r.import_id
+                       WHERE r.status IN ('identity_review','identity_conflict')"""
+                )
+                self.connection.execute(
+                    """UPDATE enterprise_import_rows SET identity_review_id=(
+                           SELECT v.identity_review_id FROM enterprise_identity_reviews v
+                           WHERE v.import_id=enterprise_import_rows.import_id AND v.row_number=enterprise_import_rows.row_number
+                       ) WHERE identity_review_id IS NULL AND status IN ('identity_review','identity_conflict')"""
+                )
+                self.connection.execute(
+                    """INSERT OR IGNORE INTO enterprise_source_aliases
+                       (alias_id,company_id,source_system,source_invoice_id,invoice_id,document_id,identity_review_id,
+                        row_number,locator_json,content_hash,source_json,status,created_at)
+                       SELECT 'legacy-alias-'||r.import_id||'-'||r.row_number,r.company_id,r.source_system,r.source_invoice_id,
+                              CASE WHEN r.status IN ('inserted','updated','unchanged','conflict','duplicate_document','identity_linked','duplicate_line') THEN r.invoice_id END,
+                              d.document_id,r.identity_review_id,r.row_number,
+                              json_object('row_number',r.row_number,'original_available',d.original_available),r.content_hash,r.source_json,
+                              CASE WHEN r.identity_review_id IS NOT NULL THEN 'pending_identity'
+                                   WHEN r.invoice_id IS NOT NULL AND r.status IN ('inserted','updated','unchanged','conflict','duplicate_document','identity_linked','duplicate_line') THEN 'linked'
+                                   ELSE 'rejected' END,
+                              r.created_at
+                       FROM enterprise_import_rows r JOIN enterprise_source_documents d ON d.import_id=r.import_id"""
+                )
+                self.connection.execute("INSERT INTO meta(key,value) VALUES('enterprise_schema_version','6') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+                self.connection.commit()
+            except Exception:
+                self.connection.rollback()
+                raise
+        schema_version = self.connection.execute("SELECT value FROM meta WHERE key='enterprise_schema_version'").fetchone()
+        if schema_version and int(schema_version["value"]) < 7:
+            self.connection.execute("BEGIN IMMEDIATE")
+            try:
+                current = self.connection.execute("SELECT value FROM meta WHERE key='enterprise_schema_version'").fetchone()
+                if current and int(current["value"]) < 7:
+                    self.connection.execute("""INSERT OR IGNORE INTO user_company_permissions(user_id,company_id,can_view,can_modify)
+                        SELECT u.user_id,c.company_id,1,1 FROM enterprise_users u CROSS JOIN companies c
+                        WHERE u.is_admin=1 AND u.active=1""")
+                    self.connection.execute("UPDATE meta SET value='7' WHERE key='enterprise_schema_version'")
+                self.connection.commit()
+            except Exception:
+                self.connection.rollback()
+                raise
+        response_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_responses)")}
+        if "idempotency_key" not in response_columns:
+            self.connection.execute("ALTER TABLE enterprise_responses ADD COLUMN idempotency_key TEXT")
+        if "payload_hash" not in response_columns:
+            self.connection.execute("ALTER TABLE enterprise_responses ADD COLUMN payload_hash TEXT")
+        self.connection.execute("""CREATE UNIQUE INDEX IF NOT EXISTS enterprise_response_idempotency
+            ON enterprise_responses(request_id,submitted_by,idempotency_key) WHERE idempotency_key IS NOT NULL""")
         extra_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_invoice_extra)")}
         if "amount_text" not in extra_columns:
             self.connection.execute("ALTER TABLE enterprise_invoice_extra ADD COLUMN amount_text TEXT NOT NULL DEFAULT '0.00'")
@@ -380,7 +734,6 @@ class EnterpriseDatabase(TaxDatabase):
         settings_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(enterprise_company_settings)")}
         if "default_purpose_policy" not in settings_columns:
             self.connection.execute("ALTER TABLE enterprise_company_settings ADD COLUMN default_purpose_policy TEXT NOT NULL DEFAULT 'all_blank'")
-        self.connection.execute("INSERT INTO meta(key,value) VALUES('enterprise_schema_version','2') ON CONFLICT(key) DO UPDATE SET value=excluded.value")
 
 
 def hash_token(token: str) -> str:

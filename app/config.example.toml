@@ -12,7 +12,7 @@ thinking = false
 live_enabled = false
 timeout_seconds = 180
 max_output_tokens = 4096
-context_budget_tokens = 16000
+context_budget_tokens = 24000
 # Set a positive budget only after explicit authorization; model calls remain off otherwise.
 budget_usd = 2
 

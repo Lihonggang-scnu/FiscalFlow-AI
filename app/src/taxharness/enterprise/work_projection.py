@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import json
 from typing import Any
 
+from .field_evaluation import evaluate_draft_fields
 from .service import EnterpriseService
 from .storage import EnterpriseDatabase
 
@@ -13,16 +15,45 @@ _ACTIVE_DRAFT_STATUSES = {"proposed", "clarification", "unavailable", "conflict"
 _CATEGORY_NAMES = ("needs_input", "awaiting_confirmation", "waiting", "awaiting_review", "completed", "excluded")
 
 
-def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id: str) -> dict[str, Any]:
+def _draft_field_source(draft: dict, field: str) -> dict | None:
+    value = draft.get("proposed_" + field)
+    if value is None:
+        return None
+    context = (draft.get("field_context") or {}).get(field, {})
+    evidence = context.get("evidence_source") or {}
+    if context.get("source_confirmation"):
+        return {"kind": "accountant_confirmed_suggestion", "label": "会计确认过的建议"}
+    if evidence.get("type") == "source_document":
+        return {"kind": "imported_source", "label": "导入资料", "document_id": evidence.get("document_id"),
+                "locator": evidence.get("locator")}
+    if evidence.get("type") == "reply_attachment":
+        return {"kind": "requester_attachment", "label": "经办人附件", "attachment_id": evidence.get("attachment_id"),
+                "page": evidence.get("page"), "verification": evidence.get("verification")}
+    if evidence.get("type") == "requester_reply":
+        exact = value in str(context.get("evidence_quote") or draft.get("evidence_quote") or "")
+        return {"kind": "requester_reply" if exact else "reply_interpretation",
+                "label": "经办人回复原话" if exact else "经办人回复整理出的建议，需核对"}
+    if context.get("source_recorded") or draft.get("origin") == "chat":
+        if value and value not in str(context.get("evidence_quote") or draft.get("evidence_quote") or ""):
+            return {"kind": "unverified_suggestion", "label": "待核对的整理建议"}
+        return {"kind": "accountant_message", "label": "会计的说明或更正"}
+    if draft.get("response_id"):
+        exact = value in str(context.get("evidence_quote") or draft.get("evidence_quote") or "")
+        return {"kind": "requester_reply" if exact else "reply_interpretation",
+                "label": "经办人回复原话" if exact else "经办人回复整理出的建议，需核对"}
+    return {"kind": "unknown", "label": "来源待核对"}
+
+
+def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id: str, include_review_basis: bool = True) -> dict[str, Any]:
     """Project the stored work item, live invoice rows, and drafts without mutating them."""
 
     service = EnterpriseService(database)
-    first = service.work_item(user=user, task_id=task_id, page=1, page_size=100)
+    first = service.work_item(user=user, task_id=task_id, page=1, page_size=100, include_review_basis=include_review_basis)
     task = first["task"]
     invoice_page = first["invoices"]
     invoices = list(invoice_page["items"])
     for page in range(2, invoice_page["pages"] + 1):
-        invoices.extend(service.work_item(user=user, task_id=task_id, page=page, page_size=100)["invoices"]["items"])
+        invoices.extend(service.work_item(user=user, task_id=task_id, page=page, page_size=100, include_review_basis=include_review_basis)["invoices"]["items"])
 
     invoice_by_id = {invoice["invoice_id"]: invoice for invoice in invoices}
     record_kind = "task_snapshot" if task["status"] == "closed" else "current_database"
@@ -36,10 +67,8 @@ def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id
         }
         exact_invoice = invoice_by_id.get(source["invoice_id"])
         source_revision = source.get("source_revision")
-        if exact_invoice is None or source_revision is None:
-            version_state = "not_comparable"
-        else:
-            version_state = "current" if int(source_revision) == int(exact_invoice["revision"]) else "stale"
+        evaluation = evaluate_draft_fields(source, exact_invoice)
+        version_state = evaluation["source_version_state"]
         draft = {
             "draft_id": source["draft_id"],
             "task_id": source["task_id"],
@@ -52,6 +81,8 @@ def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id
                 "remarks": source["proposed_remarks"],
             },
             "evidence_quote": source["evidence_quote"],
+            "field_sources": {field: _draft_field_source(source, field) for field in ("purpose", "remarks")
+                              if source["proposed_" + field] is not None},
             "clarification_question": source["clarification_question"],
             "needs_clarification": source["needs_clarification"],
             "unavailable": source["unavailable"],
@@ -59,6 +90,10 @@ def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id
             "source_invoice_revision": source_revision,
             "current_invoice_revisions": current_versions,
             "source_version_state": version_state,
+            "invoice_revision_state": evaluation["invoice_revision_state"],
+            "field_states": evaluation["field_states"],
+            "field_conflicts": evaluation["field_conflicts"],
+            "conflict_reason": (source.get("field_context") or {}).get("_conflict_reason", {}).get("kind"),
             "superseded_by": source.get("superseded_by"),
             "created_by": source["created_by"],
             "created_at": source["created_at"],
@@ -141,12 +176,28 @@ def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id
             invoice_ids = [invoice_id for invoice_id, value in waiting_reasons.items() if value == reason]
             if invoice_ids:
                 next_actions.append({"action": action, "invoice_ids": invoice_ids})
+        for draft in drafts:
+            if (draft["invoice_id"] in categories["waiting"] and draft["field_conflicts"] and
+                    (draft["status"] == "proposed" or draft["conflict_reason"] == "field_conflict") and not draft["superseded_by"] and
+                    not draft["needs_clarification"] and not draft["unavailable"]):
+                ready = [field for field, value in draft["field_states"].items() if value["state"] == "ready"]
+                if ready:
+                    next_actions.append({"action": "confirm_ready_fields", "invoice_id": draft["invoice_id"],
+                                         "draft_id": draft["draft_id"], "draft_revision": draft["draft_revision"],
+                                         "fields": ready, "conflicting_fields": list(draft["field_conflicts"])})
     if categories["awaiting_review"]:
         next_actions.append({"action": "review_invoices", "invoice_ids": categories["awaiting_review"]})
     if categories["excluded"]:
         next_actions.append({"action": "inspect_void_invoices", "invoice_ids": categories["excluded"]})
     if categories["completed"] and len(categories["completed"]) == len(invoices) and task["status"] != "closed":
         next_actions.append({"action": "close_work_item", "task_id": task_id})
+
+    response_counts = {row["request_id"]: int(row["n"]) for row in database.connection.execute(
+        """SELECT r.request_id,COUNT(p.response_id) AS n FROM enterprise_requests r
+           LEFT JOIN enterprise_responses p USING(request_id) WHERE r.task_id=? GROUP BY r.request_id""", (task_id,))}
+    requests = [{"request_id": row["request_id"], "status": row["status"], "message": row["message"],
+                 "respondent_user_id": row["respondent_user_id"], "target_invoice_ids": json.loads(row["target_invoice_ids_json"]),
+                 "response_count": response_counts[row["request_id"]]} for row in first["requests"]]
 
     return {
         "status": "ok",
@@ -157,5 +208,6 @@ def project_enterprise_work(database: EnterpriseDatabase, *, user: dict, task_id
         **categories,
         "waiting_reasons": waiting_reasons,
         "drafts": drafts,
+        "requests": requests,
         "next_actions": next_actions,
     }
